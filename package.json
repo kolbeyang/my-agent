@@ -1,0 +1,26 @@
+{
+  "name": "my-agent",
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "dev": "tsx --env-file=.env --watch bot.ts --mode telegram",
+    "start": "tsx --env-file=.env bot.ts --mode telegram",
+    "start:prod": "tsx bot.ts --mode telegram",
+    "try": "tsx --env-file=.env bot.ts --mode cli"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.64",
+    "@lmnr-ai/lmnr": "^0.8.0",
+    "ai": "^6.0.0",
+    "grammy": "^1.30.0",
+    "mem0ai": "^2.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild", "protobufjs"]
+  }
+}
