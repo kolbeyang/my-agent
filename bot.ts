@@ -3,6 +3,8 @@ import { generateText, stepCountIs, tool, type ModelMessage } from "ai";
 import { Laminar, getTracer } from "@lmnr-ai/lmnr";
 import { z } from "zod";
 import { Memory } from "mem0ai/oss";
+import { Composio } from "@composio/core";
+import { VercelProvider } from "@composio/vercel";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -60,6 +62,25 @@ const recall = async (query: string, userId: string) => {
   }
 };
 
+// Composio: a curated set of Gmail + Google Calendar tools for the connected Google
+// account (scoped to COMPOSIO_USER_ID). Skipped if env not set, so local dev still runs.
+const COMPOSIO_TOOLS = [
+  // Email: read + DRAFT only — the bot never sends; you review and send from Gmail.
+  "GMAIL_FETCH_EMAILS", "GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID", "GMAIL_CREATE_EMAIL_DRAFT", "GMAIL_SEARCH_PEOPLE",
+  // Calendar: view + create only (no delete).
+  "GOOGLECALENDAR_FIND_EVENT", "GOOGLECALENDAR_EVENTS_LIST_ALL_CALENDARS", "GOOGLECALENDAR_EVENTS_GET",
+  "GOOGLECALENDAR_FREE_BUSY_QUERY", "GOOGLECALENDAR_CREATE_EVENT",
+];
+let composioTools: Record<string, any> = {};
+if (process.env.COMPOSIO_API_KEY && process.env.COMPOSIO_USER_ID) {
+  try {
+    composioTools = await new Composio({ provider: new VercelProvider() })
+      .tools.get(process.env.COMPOSIO_USER_ID, { tools: COMPOSIO_TOOLS });
+  } catch (e: any) {
+    console.error("Composio tools unavailable:", e.message);
+  }
+}
+
 const tools = {
   tavily_search: tool({
     description: "Search the web with Tavily and return the top results as JSON.",
@@ -76,6 +97,7 @@ const tools = {
       return JSON.stringify(await r.json());
     },
   }),
+  ...composioTools,
 };
 
 const run = async (messages: ModelMessage[], userId: string) => {
@@ -88,9 +110,12 @@ const run = async (messages: ModelMessage[], userId: string) => {
     tools,
     stopWhen: stepCountIs(20),
     system:
-      "You are a helpful personal assistant with long-term memory and a web search tool. " +
-      "Use the search tool for current information. Below is what you remember about this user " +
-      "— rely on it, and weave it in naturally.\n\n--- MEMORY ---\n" +
+      "You are a helpful personal assistant with long-term memory, web search, and access to " +
+      "the user's Gmail and Google Calendar. Use web search for current information. For email you can " +
+      "read messages and prepare DRAFTS only — you cannot send, so tell the user to review and send the " +
+      "draft from Gmail. You can view the calendar and create events. " +
+      `The current date and time is ${new Date().toString()} — use it to resolve "today", "tomorrow", etc. ` +
+      "Below is what you remember about this user — rely on it, weave it in naturally.\n\n--- MEMORY ---\n" +
       (memories || "(nothing yet)"),
     messages,
     // Laminar needs its tracer passed explicitly (initialize() does NOT auto-instrument).
