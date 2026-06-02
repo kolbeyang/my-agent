@@ -68,6 +68,10 @@ db.exec(
 // each inbound message and before each scheduled run. Fine for one user; with concurrent
 // users a schedule_task call could attribute to the wrong chat.
 let currentChatId: number | undefined;
+// Shared Telegram conversation history (short-term). Scheduled runs read AND append to it,
+// so a fired task has the same chat context as a live message. CRITICAL: grows unbounded
+// (token cost climbs over a long-lived process — add trimming later).
+const history: ModelMessage[] = [];
 
 const recall = async (query: string, userId: string) => {
   try {
@@ -119,7 +123,7 @@ const tools = {
       "or `at` (ISO 8601 datetime) for a one-time task. When it fires, `prompt` is run as a fresh " +
       "request and the result is sent to the user. Always include the user's IANA `tz` for correct timing.",
     inputSchema: z.object({
-      prompt: z.string().describe("What to do/say when it fires, e.g. 'send my calendar + top AI news'"),
+      prompt: z.string().describe("What to do when it fires, phrased as an instruction to your future self — e.g. 'Remind the user to eat bread' or 'Send the user their calendar + top AI news'"),
       cron: z.string().optional().describe("5-field cron for recurring, e.g. '0 8 * * 1-5'"),
       at: z.string().optional().describe("ISO 8601 datetime for a one-time task"),
       tz: z.string().optional().describe("IANA timezone, e.g. America/Los_Angeles"),
@@ -196,7 +200,15 @@ const startScheduler = (deliver: (chatId: number, text: string) => Promise<unkno
       for (const row of due) {
         try {
           currentChatId = Number(row.chat_id);
-          const result = await run([{ role: "user", content: row.prompt }], `tg:${row.chat_id}`);
+          history.push({
+            role: "user",
+            content:
+              "[SCHEDULED TASK — this is NOT a live message from the user. A task the user scheduled " +
+              "earlier is firing now. Address the user directly and carry it out (e.g. deliver the reminder), " +
+              "using the conversation above for context.]\n\nScheduled instruction: " + row.prompt,
+          });
+          const result = await run(history, `tg:${row.chat_id}`);
+          history.push(...result.response.messages);
           await deliver(Number(row.chat_id), result.text.slice(0, 4096));
         } catch (e: any) {
           console.error("scheduled run failed:", e.message);
@@ -220,13 +232,12 @@ const startScheduler = (deliver: (chatId: number, text: string) => Promise<unkno
 const { values: { mode } } = parseArgs({ options: { mode: { type: "string" } } });
 
 if (mode === "telegram") {
-  const messages: ModelMessage[] = [];
   const bot = new Bot(process.env.TELEGRAM_TOKEN!);
   bot.on("message:text", async (ctx) => {
     currentChatId = ctx.chat.id;
-    messages.push({ role: "user", content: ctx.message.text });
-    const result = await run(messages, `tg:${ctx.chat.id}`);
-    messages.push(...result.response.messages);
+    history.push({ role: "user", content: ctx.message.text });
+    const result = await run(history, `tg:${ctx.chat.id}`);
+    history.push(...result.response.messages);
     await ctx.reply(result.text.slice(0, 4096));
   });
   startScheduler((id, text) => bot.api.sendMessage(id, text));
