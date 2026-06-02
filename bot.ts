@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
-import { generateText, stepCountIs, tool, type ModelMessage } from "ai";
-import { Laminar, getTracer } from "@lmnr-ai/lmnr";
+import { generateText, gateway as aiGateway, stepCountIs, tool, type ModelMessage } from "ai";
+import { Laminar, getTracer, wrapLanguageModel } from "@lmnr-ai/lmnr";
 import { z } from "zod";
 import { Memory } from "mem0ai/oss";
 import { Composio } from "@composio/core";
@@ -13,7 +13,16 @@ import { stdin, stdout } from "node:process";
 import { parseArgs } from "node:util";
 
 // Laminar tracing (OTel) — initialize once; pass getTracer() to each AI SDK call below.
-Laminar.initialize({ projectApiKey: process.env.LMNR_PROJECT_API_KEY });
+// When LMNR_BASE_URL is set, point at a local app_server (e.g. the debugger branch) on
+// LMNR_HTTP_PORT/LMNR_GRPC_PORT; unset in prod → defaults to cloud api.lmnr.ai.
+Laminar.initialize({
+  projectApiKey: process.env.LMNR_PROJECT_API_KEY,
+  ...(process.env.LMNR_BASE_URL && {
+    baseUrl: process.env.LMNR_BASE_URL,
+    httpPort: process.env.LMNR_HTTP_PORT ? Number(process.env.LMNR_HTTP_PORT) : undefined,
+    grpcPort: process.env.LMNR_GRPC_PORT ? Number(process.env.LMNR_GRPC_PORT) : undefined,
+  }),
+});
 
 // Mem0 hardcodes response_format {type:"json_object"}, which the AI Gateway rejects
 // (it only accepts json_schema). The OpenAI SDK uses its own fetch, so a monkeypatch
@@ -31,7 +40,7 @@ const proxy = createServer((req, res) => {
         b.response_format = { type: "json_schema", json_schema: { name: "response", schema: { type: "object" } } };
         body = JSON.stringify(b);
       }
-    } catch {}
+    } catch { }
     const r = await fetch(GATEWAY_ORIGIN + req.url, {
       method: req.method,
       headers: { authorization: req.headers.authorization ?? "", "content-type": "application/json" },
@@ -73,11 +82,22 @@ let currentChatId: number | undefined;
 // (token cost climbs over a long-lived process — add trimming later).
 const history: ModelMessage[] = [];
 
+// Pending Mem0 writes. add() runs async (so the reply isn't blocked on extraction),
+// but the promises are tracked here so the shutdown paths can flush them — otherwise
+// the most recent exchange is dropped when the process exits/restarts mid-write.
+const pendingWrites = new Set<Promise<unknown>>();
+
 const recall = async (query: string, userId: string) => {
   try {
-    const { results } = await memory.search(query, { userId });
+    // Bound the recall: an unbounded Mem0 search returns EVERY memory ranked by
+    // score, so without a limit the entire store gets injected into every system
+    // prompt (unbounded token growth + mostly-irrelevant context). Top-K only.
+    const { results } = await memory.search(query, { userId, limit: 6 });
     return results.map((r: { memory: string }) => `- ${r.memory}`).join("\n");
-  } catch {
+  } catch (e: any) {
+    // Don't fail the turn if memory is unavailable — but DO surface it. A silent
+    // "" here previously hid gateway/proxy/Qdrant outages completely.
+    console.error("memory.search failed:", e?.message ?? e);
     return "";
   }
 };
@@ -150,13 +170,15 @@ const tools = {
   ...composioTools,
 };
 
+const model = wrapLanguageModel(aiGateway("google/gemini-2.5-flash"));
+
 const run = async (messages: ModelMessage[], userId: string) => {
   const last = messages[messages.length - 1];
   const query = typeof last?.content === "string" ? last.content : "";
   const memories = await recall(query, userId);
 
   const result = await generateText({
-    model: "google/gemini-2.5-flash",
+    model,
     tools,
     stopWhen: stepCountIs(20),
     system:
@@ -173,7 +195,10 @@ const run = async (messages: ModelMessage[], userId: string) => {
   });
 
   // Push the exchange to long-term memory; Mem0 extracts/dedupes facts for us.
-  memory
+  // Fire-and-forget so the reply isn't blocked on extraction (~seconds), but TRACK
+  // the promise so the shutdown paths can flush it — otherwise the last exchange is
+  // lost when the process exits (CLI) or restarts (prod) before the write lands.
+  const write = memory
     .add(
       [
         { role: "user", content: query },
@@ -181,7 +206,9 @@ const run = async (messages: ModelMessage[], userId: string) => {
       ],
       { userId },
     )
-    .catch(() => {});
+    .catch((e: any) => console.error("memory.add failed:", e?.message ?? e))
+    .finally(() => pendingWrites.delete(write));
+  pendingWrites.add(write);
 
   return result;
 };
@@ -241,6 +268,16 @@ if (mode === "telegram") {
     await ctx.reply(result.text.slice(0, 4096));
   });
   startScheduler((id, text) => bot.api.sendMessage(id, text));
+  // Graceful shutdown (Fly sends SIGTERM on deploy/restart): stop polling, flush any
+  // in-flight memory writes so the latest exchanges persist, then exit.
+  const shutdown = async () => {
+    await bot.stop();
+    await Promise.allSettled([...pendingWrites]);
+    await Laminar.shutdown();
+    process.exit(0);
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
   bot.start();
 
 } else if (mode === "cli") {
@@ -260,6 +297,8 @@ if (mode === "telegram") {
     messages.push(...result.response.messages);
     console.log(`\nAGENT: ${result.text}\n`);
   }
+  // Flush any in-flight memory writes before exiting, or the last turn(s) never persist.
+  await Promise.allSettled([...pendingWrites]);
   await Laminar.shutdown();
   process.exit(0);
 
