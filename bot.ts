@@ -5,6 +5,8 @@ import { z } from "zod";
 import { Memory } from "mem0ai/oss";
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
+import Database from "better-sqlite3";
+import { Cron } from "croner";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -53,6 +55,20 @@ const memory = new Memory({
   }),
 });
 
+// Scheduled tasks: a tiny SQLite table (on the Fly volume /data in prod). The agent
+// writes rows via the schedule_task tool; a sweep ticker fires due rows and delivers
+// the result to Telegram. One DB, one file, no extra app.
+const db = new Database(process.env.SCHEDULE_DB_PATH ?? "schedules.db");
+db.exec(
+  `CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT NOT NULL, prompt TEXT NOT NULL,
+    cron TEXT, tz TEXT, next_run_at INTEGER NOT NULL, created_at INTEGER NOT NULL)`,
+);
+// CRITICAL/single-user: the tool learns "which chat" from this module-level var, set on
+// each inbound message and before each scheduled run. Fine for one user; with concurrent
+// users a schedule_task call could attribute to the wrong chat.
+let currentChatId: number | undefined;
+
 const recall = async (query: string, userId: string) => {
   try {
     const { results } = await memory.search(query, { userId });
@@ -97,6 +113,36 @@ const tools = {
       return JSON.stringify(await r.json());
     },
   }),
+  schedule_task: tool({
+    description:
+      "Schedule a future task or recurring reminder. Provide `cron` (5-field) for recurring, " +
+      "or `at` (ISO 8601 datetime) for a one-time task. When it fires, `prompt` is run as a fresh " +
+      "request and the result is sent to the user. Always include the user's IANA `tz` for correct timing.",
+    inputSchema: z.object({
+      prompt: z.string().describe("What to do/say when it fires, e.g. 'send my calendar + top AI news'"),
+      cron: z.string().optional().describe("5-field cron for recurring, e.g. '0 8 * * 1-5'"),
+      at: z.string().optional().describe("ISO 8601 datetime for a one-time task"),
+      tz: z.string().optional().describe("IANA timezone, e.g. America/Los_Angeles"),
+    }),
+    execute: async ({ prompt, cron, at, tz }) => {
+      if (currentChatId === undefined) return "No chat context to schedule for.";
+      let next: number;
+      if (cron) {
+        const n = new Cron(cron, { timezone: tz }).nextRun();
+        if (!n) return "Invalid cron expression.";
+        next = n.getTime();
+      } else if (at) {
+        next = Date.parse(at);
+        if (Number.isNaN(next)) return "Invalid datetime.";
+      } else {
+        return "Provide either `cron` or `at`.";
+      }
+      db.prepare(
+        "INSERT INTO schedules (chat_id, prompt, cron, tz, next_run_at, created_at) VALUES (?,?,?,?,?,?)",
+      ).run(String(currentChatId), prompt, cron ?? null, tz ?? null, next, Date.now());
+      return `Scheduled. Next run: ${new Date(next).toString()}.`;
+    },
+  }),
   ...composioTools,
 };
 
@@ -136,17 +182,54 @@ const run = async (messages: ModelMessage[], userId: string) => {
   return result;
 };
 
+// Sweep ticker: every 60s (and once on boot for catch-up) fire all due rows sequentially.
+// CRITICAL: at-least-once — a crash after run/deliver but before advancing the row re-fires it
+// on reboot (possible duplicate). Missed runs while down are coalesced to one fire, not one
+// per missed interval. Single in-process guard prevents overlapping sweeps.
+const startScheduler = (deliver: (chatId: number, text: string) => Promise<unknown>) => {
+  let sweeping = false;
+  const sweep = async () => {
+    if (sweeping) return;
+    sweeping = true;
+    try {
+      const due = db.prepare("SELECT * FROM schedules WHERE next_run_at <= ?").all(Date.now()) as any[];
+      for (const row of due) {
+        try {
+          currentChatId = Number(row.chat_id);
+          const result = await run([{ role: "user", content: row.prompt }], `tg:${row.chat_id}`);
+          await deliver(Number(row.chat_id), result.text.slice(0, 4096));
+        } catch (e: any) {
+          console.error("scheduled run failed:", e.message);
+        }
+        if (row.cron) {
+          const n = new Cron(row.cron, { timezone: row.tz ?? undefined }).nextRun();
+          if (n) db.prepare("UPDATE schedules SET next_run_at = ? WHERE id = ?").run(n.getTime(), row.id);
+          else db.prepare("DELETE FROM schedules WHERE id = ?").run(row.id);
+        } else {
+          db.prepare("DELETE FROM schedules WHERE id = ?").run(row.id);
+        }
+      }
+    } finally {
+      sweeping = false;
+    }
+  };
+  sweep();
+  setInterval(sweep, 60_000);
+};
+
 const { values: { mode } } = parseArgs({ options: { mode: { type: "string" } } });
 
 if (mode === "telegram") {
   const messages: ModelMessage[] = [];
   const bot = new Bot(process.env.TELEGRAM_TOKEN!);
   bot.on("message:text", async (ctx) => {
+    currentChatId = ctx.chat.id;
     messages.push({ role: "user", content: ctx.message.text });
     const result = await run(messages, `tg:${ctx.chat.id}`);
     messages.push(...result.response.messages);
     await ctx.reply(result.text.slice(0, 4096));
   });
+  startScheduler((id, text) => bot.api.sendMessage(id, text));
   bot.start();
 
 } else if (mode === "cli") {

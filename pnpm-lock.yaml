@@ -23,6 +23,12 @@ importers:
       ai:
         specifier: ^6.0.0
         version: 6.0.193(zod@3.25.76)
+      better-sqlite3:
+        specifier: ^12.0.0
+        version: 12.10.0
+      croner:
+        specifier: ^9.0.0
+        version: 9.1.0
       grammy:
         specifier: ^1.30.0
         version: 1.43.0
@@ -33,6 +39,9 @@ importers:
         specifier: ^3.25.0
         version: 3.25.76
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
       tsx:
         specifier: ^4.19.0
         version: 4.22.4
@@ -997,6 +1006,9 @@ packages:
     resolution: {integrity: sha512-j7sWS8lsImSaFooI3dRDL62JEi9qIRSgJ/4HKnC2P7MUAST3/GGT2gm2Sq4gy7PFkUJOZ4d5kpAzYF9W4gd+kQ==}
     engines: {node: '>=14'}
 
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
+
   '@types/istanbul-lib-coverage@2.0.6':
     resolution: {integrity: sha512-2QF/t/auWm0lsy8XtKVPG19v3sSOQlJe/YHZgfjb/KBBHOGSV+J2q/S671rcq9uTBrLAXmZpqJiaQbMT+zNU1w==}
 
@@ -1219,6 +1231,10 @@ packages:
 
   console-table-printer@2.16.0:
     resolution: {integrity: sha512-X46F33vlP/jVYT3ajukzmOea4Bxet/jRjBKY/fhqr0IvTUNdfBYlrh+Juk0eiZJaTJYrzlEd4RFMF5cQac+m/w==}
+
+  croner@9.1.0:
+    resolution: {integrity: sha512-p9nwwR4qyT5W996vBZhdvBCnMhicY5ytZkR4D1Xj0wuTDEiMnjwR57Q3RXYY/s0EpX6Ay3vgIcfaR+ewGHsi+g==}
+    engines: {node: '>=18.0'}
 
   crypt@0.0.2:
     resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
@@ -3285,6 +3301,10 @@ snapshots:
       - '@opentelemetry/api'
       - supports-color
 
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 25.9.1
+
   '@types/istanbul-lib-coverage@2.0.6': {}
 
   '@types/istanbul-lib-report@3.0.3':
@@ -3304,7 +3324,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 18.19.130
+      '@types/node': 25.9.1
       form-data: 4.0.5
 
   '@types/node@18.19.130':
@@ -3511,6 +3531,8 @@ snapshots:
   console-table-printer@2.16.0:
     dependencies:
       simple-wcswidth: 1.1.2
+
+  croner@9.1.0: {}
 
   crypt@0.0.2: {}
 

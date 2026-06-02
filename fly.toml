@@ -4,6 +4,13 @@ primary_region = "iad"
 
 [build]
 
+[env]
+  SCHEDULE_DB_PATH = "/data/schedules.db"
+
+[mounts]
+  source = "data"
+  destination = "/data"
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
