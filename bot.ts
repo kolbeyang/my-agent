@@ -261,26 +261,16 @@ const { values: { mode } } = parseArgs({ options: { mode: { type: "string" } } }
 
 if (mode === "telegram") {
   const bot = new Bot(process.env.TELEGRAM_TOKEN!);
-  // Render the model's markdown in Telegram. MarkdownV2 is strict (most punctuation must be
-  // escaped, and **bold**/#headers/-bullets aren't native), so convert standard markdown →
-  // Telegram-safe MarkdownV2 with telegramify-markdown. Fall back to plain text if Telegram
-  // still rejects the entities, so a reply is never dropped on a formatting error.
-  const sendMarkdown = async (chatId: number, text: string) => {
-    const body = text.slice(0, 4096);
-    try {
-      await bot.api.sendMessage(chatId, telegramify(body, "escape"), { parse_mode: "MarkdownV2" });
-    } catch {
-      await bot.api.sendMessage(chatId, body);
-    }
-  };
+  // telegramify converts the model's markdown to Telegram-safe MarkdownV2 (escapes punctuation, maps **bold**/#headers/-bullets).
+  const md = (text: string) => telegramify(text.slice(0, 4096), "escape");
   bot.on("message:text", async (ctx) => {
     currentChatId = ctx.chat.id;
     history.push({ role: "user", content: ctx.message.text });
     const result = await run(history, `tg:${ctx.chat.id}`);
     history.push(...result.response.messages);
-    await sendMarkdown(ctx.chat.id, result.text);
+    await ctx.reply(md(result.text), { parse_mode: "MarkdownV2" });
   });
-  startScheduler((id, text) => sendMarkdown(id, text));
+  startScheduler((id, text) => bot.api.sendMessage(id, md(text), { parse_mode: "MarkdownV2" }));
   // Graceful shutdown (Fly sends SIGTERM on deploy/restart): stop polling, flush any
   // in-flight memory writes so the latest exchanges persist, then exit.
   const shutdown = async () => {
