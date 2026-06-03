@@ -5,7 +5,7 @@ persistent long-term memory (Mem0 + Qdrant), Gmail + Google Calendar tools
 (Composio), and tracing (Laminar). All LLM inference runs through the Vercel AI
 Gateway on a single key. Deployed on Fly.io.
 
-Telegram bot: **@harry_260131_bot**
+Telegram bot: **@your_bot**
 
 ## Architecture (one file: `bot.ts`)
 
@@ -17,7 +17,7 @@ Telegram ──► bot.ts (grammY, long-poll) ──► generateText (Vercel AI 
                  ├─ before each turn: memory.search() → inject recalled facts into system prompt
                  └─ after each turn:  memory.add()    → Mem0 extracts/stores facts
                        Mem0 LLM+embeddings ─► localhost proxy (:8788) ─► AI Gateway
-                       Mem0 vectors ─────────► Qdrant (my-agent-qdrant.flycast:6333)
+                       Mem0 vectors ─────────► Qdrant (<your-qdrant-app>.flycast:6333)
 ```
 
 Everything lives in `bot.ts` (~150 lines). Two run modes: `--mode telegram`
@@ -43,9 +43,9 @@ Everything lives in `bot.ts` (~150 lines). Two run modes: `--mode telegram`
    auto-instrument — without the tracer, the dashboard stays empty.
 3. **Mem0 is pinned to v2** on purpose. v3 is a breaking rewrite (search `limit`→`topK`, entity
    IDs into `filters`, new `threshold` that drops recalls) and does NOT remove the proxy. Don't upgrade.
-4. **Composio user id is `pg-test-5669300d-...`** (`COMPOSIO_USER_ID`) — the Google account is
+4. **Composio user id is `<COMPOSIO_USER_ID>`** (`COMPOSIO_USER_ID`) — the Google account is
    connected under that Composio user. Tools are fetched for that id at startup.
-5. **`.internal` DNS doesn't reach Qdrant — use `.flycast`.** `QDRANT_URL=http://my-agent-qdrant.flycast:6333`.
+5. **`.internal` DNS doesn't reach Qdrant — use `.flycast`.** `QDRANT_URL=http://<your-qdrant-app>.flycast:6333`.
 6. **Short-term history (`messages[]`) is one module-level array** shared across chats — fine for
    single-user, would mix histories with multiple Telegram users.
 
@@ -73,20 +73,20 @@ pnpm dev                 # Telegram bot with --watch (needs TELEGRAM_TOKEN)
 ## Deploying (Fly.io)
 
 Two apps in region `iad`:
-- **`my-agent-mem0`** — the bot (worker, no public port, long-polls Telegram). Image built from `Dockerfile`.
-- **`my-agent-qdrant`** — Qdrant vector DB (image `qdrant/qdrant`, volume `qdrant_data` at
+- **`<your-app>`** — the bot (worker, no public port, long-polls Telegram). Image built from `Dockerfile`.
+- **`<your-qdrant-app>`** — Qdrant vector DB (image `qdrant/qdrant`, volume `qdrant_data` at
   `/qdrant/storage`, reached via Flycast). Config in `qdrant/fly.toml`.
 
 ```bash
 # deploy the bot (most common)
-fly deploy -a my-agent-mem0 --ha=false
+fly deploy -a <your-app> --ha=false
 
 # deploy/redeploy qdrant (rare — only if you change qdrant/fly.toml)
-fly deploy -c qdrant/fly.toml -a my-agent-qdrant
+fly deploy -c qdrant/fly.toml -a <your-qdrant-app>
 
 # set / rotate a secret (auto-restarts the machine)
-fly secrets set KEY=value -a my-agent-mem0
-fly secrets list -a my-agent-mem0
+fly secrets set KEY=value -a <your-app>
+fly secrets list -a <your-app>
 ```
 
 Build notes: `package.json` pins `packageManager: pnpm@10.25.0` (newer pnpm enforces a
@@ -96,9 +96,9 @@ allows `better-sqlite3` (Mem0's history store) to compile in the Docker image.
 ## Restarting
 
 ```bash
-fly apps restart my-agent-mem0          # restart the bot
-fly machine restart <id> -a my-agent-mem0
-fly status -a my-agent-mem0             # machine state
+fly apps restart <your-app>          # restart the bot
+fly machine restart <id> -a <your-app>
+fly status -a <your-app>             # machine state
 ```
 The bot is a worker (no health-checked HTTP service); it stays running 24/7. Restarting reloads
 secrets and re-fetches Composio tools at startup. In-process state (the `messages[]` history)
@@ -108,9 +108,9 @@ is lost on restart; long-term memory (Qdrant) survives.
 
 ### Logs
 ```bash
-fly logs -a my-agent-mem0               # live tail
-fly logs -a my-agent-mem0 --no-tail     # recent
-fly logs -a my-agent-qdrant             # qdrant
+fly logs -a <your-app>               # live tail
+fly logs -a <your-app> --no-tail     # recent
+fly logs -a <your-qdrant-app>             # qdrant
 ```
 
 ### Laminar traces (CLI — there is no MCP for Laminar)
@@ -128,7 +128,7 @@ owns `LMNR_PROJECT_API_KEY`). Note: the `@lmnr-ai/lmnr` bundled `lmnr` binary ha
 ### Qdrant (memory vectors)
 From the bot machine (Node has fetch; `.flycast` works, `.internal` does NOT):
 ```bash
-fly ssh console -a my-agent-mem0 -C "node -e \"fetch('http://my-agent-qdrant.flycast:6333/collections/memories').then(r=>r.json()).then(d=>console.log(JSON.stringify(d.result?.points_count)))\""
+fly ssh console -a <your-app> -C "node -e \"fetch('http://<your-qdrant-app>.flycast:6333/collections/memories').then(r=>r.json()).then(d=>console.log(JSON.stringify(d.result?.points_count)))\""
 ```
 
 ### Composio (Gmail/Calendar connections)
@@ -141,7 +141,7 @@ console.log(list.items.map(a => `${a.toolkit?.slug}=${a.status}`));
 ```
 Connections should be `ACTIVE`. If `INITIALIZING`/`EXPIRED`, the Google OAuth wasn't completed —
 regenerate a link with `c.connectedAccounts.link(userId, authConfigId)` and finish the consent flow.
-Auth configs: Gmail `ac_fQ1z3CdV7Fig`, Calendar `ac_vQLolI2SfAVK` (both Composio-managed).
+Auth configs: Gmail `<gmail-auth-config-id>`, Calendar `<calendar-auth-config-id>` (both Composio-managed).
 
 ## Tool safety
 Composio tools are curated to **read + draft + create only** — no sending email, no deleting.

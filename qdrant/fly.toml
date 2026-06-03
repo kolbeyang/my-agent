@@ -1,6 +1,6 @@
 # Dedicated Qdrant app — runs the upstream qdrant/qdrant image with a persistent
-# volume, private-only (reached by the bot over Flycast at my-agent-qdrant.flycast:6333).
-app = "my-agent-qdrant"
+# volume, private-only (reached by the bot over Flycast at <your-qdrant-app>.flycast:6333).
+app = "<your-qdrant-app>"
 primary_region = "iad"
 
 [build]
