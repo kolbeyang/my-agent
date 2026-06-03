@@ -94,20 +94,26 @@ look at next.
 ```bash
 npx lmnr-cli trace set-note <trace-id> "## What this run tests
 Replays the first 3 calls, runs the 4th (report synthesis) live with the new
-length cap. The synthesis call now returns ~180 words (was ~600). See the
-final LLM span."
+length cap. The <span id='<spanId>' name='synthesis call' /> now returns ~180
+words (was ~600)."
 ```
 
-Reference a specific span by embedding a Laminar trace link — the UI renders it
-as a clickable **span chip** that opens that span:
+Reference a specific span by embedding a **span tag** in the note — the UI
+renders it as a clickable **span chip** that opens that span in the trace view:
 
 ```text
-[the synthesis call](https://www.laminar.sh/project/<projectId>/traces/<traceId>?spanId=<spanId>)
+<span id='<spanId>' name='the synthesis call' />
 ```
 
-`spanId` is optional (drop it to link the whole trace); extra query params are
-tolerated. Get `<projectId>` from `debugger_url` in the pointer file, and
-`<traceId>`/`<spanId>` from the SQL queries below.
+- `id` is the span's UUID — the `span_id` you get from the SQL queries below.
+- `name` is the chip's label (free text; keep it short).
+- Optional `reference_text='…'` adds a muted inline preview after the label, e.g.
+  `<span id='<spanId>' name='synthesis' reference_text='~180 words, was ~600' />`.
+
+The span tag is the **only** way to produce a chip. Plain markdown links
+(`[text](https://…)`) render as ordinary links, not chips — so use the tag, not
+a URL, when you want to point at a span. The span must belong to the trace the
+note is attached to.
 
 Open the session in the browser straight from the pointer file:
 
