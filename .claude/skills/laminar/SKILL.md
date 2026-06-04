@@ -1,11 +1,6 @@
 ---
-name: laminar
-description: >-
-  Use when building, testing, or debugging an LLM agent instrumented with
-  Laminar. Covers recording a run under LMNR_DEBUG, inspecting the resulting
-  trace with the Laminar CLI's SQL, replaying cached LLM calls to iterate fast
-  and deterministically, and annotating debug sessions (names + per-trace
-  markdown notes) so the user can follow what happened.
+name: laminar-debug-trace
+description: "Use when building, testing, or debugging an LLM agent instrumented with Laminar. Covers recording a run under LMNR_DEBUG, inspecting the resulting trace with the Laminar CLI's SQL, replaying cached LLM calls to iterate fast and deterministically, and annotating debug sessions (names + per-trace markdown notes) so the user can follow what happened."
 ---
 
 # Laminar Debugger
@@ -37,7 +32,11 @@ cached calls up to the point of interest and executing live past it.
 
 ## Prerequisite: instrument the child agent
 
-Before any of this works, the child agent must be properly instrumented with Laminar. If this has not been done yet, you can learn how to instrument here (TODO: doc slink). 
+Before any of this works, the child agent must be properly instrumented with Laminar. If this has not been done yet, you can learn how to instrument [here](https://laminar.sh/docs/tracing/integrations/overview).
+
+## Prerequisite: access the CLI
+
+Make sure the Laminar CLI is working in your environment. Learn more about the CLI [here](https://laminar.sh/docs/platform/cli#cli).
 
 ## 1. Record a run
 
@@ -54,9 +53,10 @@ Truthy values are `true`, `1`, `yes`, `on`. A debug run:
 - prints a debugger URL you can open in the UI, and
 - writes a pointer file at `./.lmnr/last-run.json` with this run's ids, and
   prints the same payload to the console (prefixed `LMNR_DEBUG_RUN `) for when
-  the filesystem isn't available.
+  the filesystem isn't available. (It may also be a good idea to gitignore the `.lmnr` directory.)
 
-The pointer file is the handoff between runs 
+The pointer file is the handoff between runs
+
 ```json
 {
   "trace_id": "…",
@@ -92,11 +92,25 @@ run: what you were testing, what the trace shows, what you changed, and what to
 look at next.
 
 ```bash
-npx lmnr-cli trace set-note <trace-id> "## What this run tests
+npx lmnr-cli trace append-note <trace-id> "## What this run tests
 Replays the first 3 calls, runs the 4th (report synthesis) live with the new
 length cap. The <span id='<spanId>' name='synthesis call' /> now returns ~180
 words (was ~600)."
 ```
+
+Notes are **append-only**: each `append-note` call adds a new paragraph to the
+trace's existing note — never re-send the whole note, just the new entry.
+
+To re-orient yourself in an ongoing session (e.g. after a context reset), dump
+every trace's note in order:
+
+```bash
+npx lmnr-cli debug session summary <session-id>          # or --json
+```
+
+Output is one block per trace, oldest first — the note followed by a
+`<trace id="…" end-time="…"/>` tag you can feed back into the SQL queries
+below.
 
 Reference a specific span by embedding a **span tag** in the note — the UI
 renders it as a clickable **span chip** that opens that span in the trace view:
@@ -110,10 +124,7 @@ renders it as a clickable **span chip** that opens that span in the trace view:
 - Optional `reference_text='…'` adds a muted inline preview after the label, e.g.
   `<span id='<spanId>' name='synthesis' reference_text='~180 words, was ~600' />`.
 
-The span tag is the **only** way to produce a chip. Plain markdown links
-(`[text](https://…)`) render as ordinary links, not chips — so use the tag, not
-a URL, when you want to point at a span. The span must belong to the trace the
-note is attached to.
+The span must belong to the trace the note is attached to.
 
 Open the session in the browser straight from the pointer file:
 
@@ -153,11 +164,14 @@ WHERE trace_id = '<trace-id>'
 ORDER BY start_time ASC;
 ```
 
-`span_type` is one of `LLM`, `TOOL`, or `DEFAULT`. To count the LLM calls along
-the loop (this is what `LMNR_DEBUG_CACHE_UNTIL` indexes into):
+`span_type` is one of `LLM`, `TOOL`, `DEFAULT`, or `CACHED` (a replayed LLM
+call in a replay run's trace). To count the calls along the loop (this is what
+`LMNR_DEBUG_CACHE_UNTIL` indexes into — replayed calls count too, so include
+`CACHED` when the source trace is itself a replay):
 
 ```sql
-SELECT count() FROM spans WHERE trace_id = '<trace-id>' AND span_type = 'LLM';
+SELECT count() FROM spans
+WHERE trace_id = '<trace-id>' AND span_type IN ('LLM', 'CACHED');
 ```
 
 Discover the full schema any time with `npx lmnr-cli sql schema`. Useful tables:
@@ -192,31 +206,43 @@ npx lmnr-cli sql query "…" --base-url http://localhost --port 8000
 After editing the child agent, re-run seeded from the last run:
 
 ```bash
-LMNR_DEBUG=true LMNR_DEBUG_FROM_LAST_RUN=true node my_agent.js
+LMNR_DEBUG=true LMNR_DEBUG_FROM_LAST_RUN=true LMNR_DEBUG_CACHE_UNTIL=3 node my_agent.js
 ```
 
 This replays the LLM calls along the agent's main loop from the source trace's
-cache instead of hitting the model. Calls before your change return their
-recorded responses instantly; once execution diverges (or the cache window
-ends), it runs live.
+cache instead of hitting the model. Calls inside the cache window return their
+recorded responses instantly; past it, the run goes live.
 
-Control the boundary with the **cache window** — how many calls along the loop
-to replay before going live:
+`LMNR_DEBUG_FROM_LAST_RUN` seeds `replay_trace_id` / `session_id` /
+`cache_until` from the pointer file, but a fresh record run's pointer has
+`cache_until: 0` — and **a zero cache window means no replay at all** (the run
+is fully live). Always set `LMNR_DEBUG_CACHE_UNTIL` explicitly; individual
+`LMNR_DEBUG_*` vars override the pointer file per field.
+
+`LMNR_DEBUG_CACHE_UNTIL` accepts either form:
+
+- **A count `N`** — replay the first N calls along the loop, then go live.
+- **A span id** — replay *through* that span (inclusive: the named call itself
+  comes from cache, the next one runs live). Accepts the span's full UUID, the
+  last two UUID groups, the 16-hex OTel id, or any hex suffix — whatever you
+  copied from SQL or the UI. A span id that isn't one of the loop's LLM calls
+  warns and runs fully live.
 
 ```bash
 LMNR_DEBUG=true \
 LMNR_DEBUG_REPLAY_TRACE_ID=<trace-id> \
-LMNR_DEBUG_CACHE_UNTIL=3 \
+LMNR_DEBUG_CACHE_UNTIL=<n-or-span-id> \
 node my_agent.js
 ```
 
 Replaying up to *just before* the buggy call lets you re-run that one call live
-with your fix, over and over, without re-executing everything that led up to it.
-Set the window *past* the change to validate that the rest of the loop now
-behaves. Individual `LMNR_DEBUG_*` vars override the pointer file, so you can mix
-"seed from last run" with an explicit `CACHE_UNTIL`. Each replayed iteration
-produces a new trace under the same session, so attempts compare side by side in
-the UI (and you should note each one — see step 2).
+with your fix, over and over, without re-executing everything that led up to it
+— with the span-id form, pass the id of the call **before** the buggy one
+(inclusive semantics). Set the window *past* the change to validate that the
+rest of the loop now behaves. Each replayed iteration produces a new trace
+under the same session, so attempts compare side by side in the UI (and you
+should note each one — see step 2). Replayed traces can themselves be replay
+sources — their cached calls count as loop positions just like live ones.
 
 ## What to keep in mind
 
