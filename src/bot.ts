@@ -9,10 +9,9 @@ import {
   type ModelMessage,
 } from "ai";
 import { Mutex } from "async-mutex";
-import { createBashTool } from "bash-tool";
 import { Cron } from "croner";
+import { execa } from "execa";
 import { Bot } from "grammy";
-import { Bash, ReadWriteFs } from "just-bash";
 import {
   mkdir,
   readdir,
@@ -21,14 +20,14 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import telegramify from "telegramify-markdown";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
-import { createMemoryGit } from "./memory-git";
 import { getSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { reminderSchema } from "./types";
 
@@ -47,16 +46,29 @@ await mkdir(join(DATA_DIR, "conversations"), { recursive: true });
 await mkdir(join(DATA_DIR, "memory"), { recursive: true });
 await mkdir(remindersDir, { recursive: true });
 
-// Host-side git sync of the data dir to a private remote (no-op unless MEMORY_REPO
-// is set). Pull external edits on boot; push after every turn.
-const memory = createMemoryGit(DATA_DIR);
-await memory.init();
-
-const sandbox = new Bash({ fs: new ReadWriteFs({ root: DATA_DIR }), cwd: "/" });
-const { tools: fileTools } = await createBashTool({
-  sandbox,
-  destination: "/",
-});
+// The agent runs git itself (it has real bash). Wire the deploy key + remote
+// once on boot so its `git push`/`pull` authenticate; the agent owns the actual
+// committing/pushing/pulling. No-op unless MEMORY_REPO + MEMORY_DEPLOY_KEY are set.
+if (process.env.MEMORY_DEPLOY_KEY && process.env.MEMORY_REPO) {
+  const keyPath = join(homedir(), ".ssh", "id_memory");
+  await mkdir(dirname(keyPath), { recursive: true });
+  await writeFile(keyPath, `${process.env.MEMORY_DEPLOY_KEY.trim()}\n`, {
+    mode: 0o600,
+  });
+  const cfg = (...a: string[]) => execa("git", ["config", "--global", ...a]);
+  await cfg(
+    "core.sshCommand",
+    `ssh -i ${keyPath} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new`,
+  );
+  await cfg("user.name", "harry");
+  await cfg("user.email", "harry@my-agent");
+  await cfg("--add", "safe.directory", DATA_DIR);
+  if (!(await stat(join(DATA_DIR, ".git")).catch(() => null))) {
+    await execa("git", ["-C", DATA_DIR, "init"]);
+    await execa("git", ["-C", DATA_DIR, "remote", "add", "origin", process.env.MEMORY_REPO]);
+    await execa("git", ["-C", DATA_DIR, "branch", "-M", "main"]);
+  }
+}
 
 const today = () => new Date().toLocaleDateString("en-CA"); // TODO: make this an env var
 const dayFile = (date: string) =>
@@ -114,8 +126,55 @@ const getComposioTools = async () => {
   return {};
 };
 
+const MAX_OUTPUT = 30_000; // cap tool output so it doesn't blow the context window
+const truncate = (s: string) =>
+  s.length <= MAX_OUTPUT
+    ? s
+    : `${s.slice(0, MAX_OUTPUT / 2)}\n…[truncated ${s.length - MAX_OUTPUT} chars]…\n${s.slice(-MAX_OUTPUT / 2)}`;
+
 const tools = {
-  ...fileTools, // bash, readFile, writeFile — the agent's memory, rooted at DATA_DIR
+  bash: tool({
+    description:
+      "Run a bash command on your computer (working dir = your data dir). Returns stdout, stderr, exitCode; a non-zero exit is returned, not thrown.",
+    inputSchema: z.object({ command: z.string() }),
+    execute: async ({ command }) => {
+      const r = await execa("bash", ["-lc", command], {
+        cwd: DATA_DIR,
+        timeout: 120_000,
+        reject: false,
+        maxBuffer: 50_000_000,
+      });
+      return {
+        stdout: truncate(r.stdout ?? ""),
+        stderr: truncate(r.stderr ?? ""),
+        exitCode: r.exitCode ?? (r.timedOut ? 124 : 1),
+      };
+    },
+  }),
+  readFile: tool({
+    description: "Read a file (path relative to your data dir).",
+    inputSchema: z.object({ path: z.string() }),
+    execute: async ({ path }) => {
+      try {
+        return {
+          content: truncate(await readFile(resolve(DATA_DIR, path), "utf8")),
+        };
+      } catch (e: any) {
+        return { error: e?.message ?? String(e) };
+      }
+    },
+  }),
+  writeFile: tool({
+    description:
+      "Write (overwrite) a file, path relative to your data dir. Prefer this over bash heredocs for multi-line content.",
+    inputSchema: z.object({ path: z.string(), content: z.string() }),
+    execute: async ({ path, content }) => {
+      const full = resolve(DATA_DIR, path);
+      await mkdir(dirname(full), { recursive: true });
+      await writeFile(full, content);
+      return { ok: true, path };
+    },
+  }),
   tavily_search: tool({
     description:
       "Search the web with Tavily and return the top results as JSON.",
@@ -167,7 +226,6 @@ const createAgent = (deliver: (text: string) => Promise<void>) => {
         console.error("turn failed:", e?.message ?? e);
       }
       await syncReminders();
-      await memory.push(`sync ${new Date().toISOString()}`);
     });
 
   // Reminders are one YAML file each at /reminders/<id>.yaml (filename = id).
