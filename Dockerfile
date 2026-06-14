@@ -1,6 +1,6 @@
 FROM node:24-slim
 
-# git + ssh client: the host syncs the data dir to a private repo (memory-git.ts).
+# git + ssh client: the agent runs git itself to sync its data dir to a private repo.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git openssh-client \
   && rm -rf /var/lib/apt/lists/*
