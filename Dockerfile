@@ -1,6 +1,9 @@
 FROM node:24-slim
 
-# bash-tool + just-bash are pure-JS — no native build tools needed.
+# git + ssh client: the host syncs the data dir to a private repo (memory-git.ts).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git openssh-client \
+  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
 WORKDIR /app

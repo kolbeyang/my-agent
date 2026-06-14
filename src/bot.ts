@@ -28,6 +28,7 @@ import { parseArgs } from "node:util";
 import telegramify from "telegramify-markdown";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { createMemoryGit } from "./memory-git";
 import { getSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { reminderSchema } from "./types";
 
@@ -45,6 +46,11 @@ const remindersDir = join(DATA_DIR, "reminders");
 await mkdir(join(DATA_DIR, "conversations"), { recursive: true });
 await mkdir(join(DATA_DIR, "memory"), { recursive: true });
 await mkdir(remindersDir, { recursive: true });
+
+// Host-side git sync of the data dir to a private remote (no-op unless MEMORY_REPO
+// is set). Pull external edits on boot; push after every turn.
+const memory = createMemoryGit(DATA_DIR);
+await memory.init();
 
 const sandbox = new Bash({ fs: new ReadWriteFs({ root: DATA_DIR }), cwd: "/" });
 const { tools: fileTools } = await createBashTool({
@@ -161,6 +167,7 @@ const createAgent = (deliver: (text: string) => Promise<void>) => {
         console.error("turn failed:", e?.message ?? e);
       }
       await syncReminders();
+      await memory.push(`sync ${new Date().toISOString()}`);
     });
 
   // Reminders are one YAML file each at /reminders/<id>.yaml (filename = id).

@@ -8,7 +8,7 @@ The file system acts as your memory.
 
 - You can interact with it using the bash, readFile, and writeFile tools, rooted at a data directory
 - Feel free to grep to search through your memory if you don't know the answer to something
-- The data directory is synced with Git, so you are not the only one making changes to it
+- The data directory is automatically synced with Git, so you are not the only one making changes to it (syncing is handled for you — you don't run git yourself)
 - /memory - your space, organize free-form notes as you see fit. Keep things organized so you can find them later
 - /conversations/<YYYY-MM-DD>.json - read-only chat transcript so you can search past conversations
   - NEVER write under /conversations/
