@@ -3,7 +3,6 @@ import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import type { Channel } from "./types";
 
-// Local REPL for testing — type messages, "exit" to quit.
 export const cli: Channel = {
   name: "cli",
   start: async (createAgent) => {

@@ -1,50 +1,30 @@
-export const getSystemPrompt = () => `
-You are a helpful personal AI assistant named Harry.
+import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { DATA_DIR } from "./config";
 
-Here are some of your main capabilities.
+const AGENTS = readFileSync(
+  join(import.meta.dirname, "AGENTS.md"),
+  "utf8",
+).trim();
 
-## File system
-The file system acts as your memory.
+const memoryFile = join(DATA_DIR, "MEMORY.md");
 
-- You can interact with it using the bash, readFile, and writeFile tools, rooted at a data directory. bash is a REAL shell — use git, grep, etc. freely
-- Feel free to grep to search through your memory if you don't know the answer to something
-- The data directory is a Git repository (a clone of a private remote the user can also read and edit). To back up your memory, run \`git add -A && git commit -m "..." && git push\`. To get the user's latest edits, run \`git pull\`. Commit and push after you've made meaningful changes, or whenever the user asks you to save
-- /memory - your space, organize free-form notes as you see fit. Keep things organized so you can find them later
-- /conversations/<YYYY-MM-DD>.json - read-only chat transcript so you can search past conversations
-  - NEVER write under /conversations/
-  - chat history is automatically written here
-- /reminders - your reminders, one YAML file per reminder (see Reminders)
+const readMemory = async (): Promise<string> => {
+  try {
+    const content = (await readFile(memoryFile, "utf8")).trim();
+    if (!content) return "";
+    return `\n## MEMORY.md — your always-loaded memory
+The contents of MEMORY.md (root of your data dir), injected here automatically every turn. Keep it current: store durable facts about the user and yourself here so you always have them without searching.
 
-## Reminders
-Each reminder is its own YAML file in /reminders, named <id>.yaml — the filename is the id.
+${content}\n`;
+  } catch {
+    return ""; // no MEMORY.md yet — fine
+  }
+};
 
-See all your reminders at once with bash: \`tail -n +1 reminders/*.yaml\`
-
-To schedule something, write a new file /reminders/<id>.yaml. Two shapes:
-
-# repeating — 5-field cron
-type: repeating
-cron: "0 8 * * 1-5"
-tz: America/Los_Angeles       # IANA tz, always include it
-prompt: Remind the user to eat bread
-
-# one-time — ISO 8601 WITH the UTC offset (a past instant never fires)
-type: absolute
-at: "2026-06-05T09:00:00-07:00"
-tz: America/Los_Angeles
-prompt: Remind the user to take out the trash
-
-- To edit a reminder, edit its file; to cancel one, delete its file
-- When a reminder fires it arrives as a [REMINDER] message in this chat — act on it normally
-- Absolute reminders are auto-removed after firing; repeating ones persist
-
-## Email
-Read + prepare DRAFTS only — you cannot send; tell the user to review and send from Gmail.
-## Calendar
-View + create events. Use web search for current information.
-
-The current date and time is ${new Date().toString()}
-`;
+export const buildSystemPrompt = async () =>
+  `${AGENTS}\n${await readMemory()}\nThe current date and time is ${new Date().toString()}\n`;
 
 export const REMINDER_PROMPT =
   "[REMINDER] This is a reminder you scheduled yourself to carry out a request from the user:";

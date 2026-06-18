@@ -1,8 +1,9 @@
 FROM node:24-slim
 
-# git + ssh client: the agent runs git itself to sync its data dir to a private repo.
+# git: general-purpose tool available to the agent's bash shell (local use only;
+# there is no remote memory sync — back up DATA_DIR out-of-band if you need it).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends git openssh-client \
+  && apt-get install -y --no-install-recommends git \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 

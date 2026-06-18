@@ -3,18 +3,19 @@ import { Bot } from "grammy";
 import telegramify from "telegramify-markdown";
 import type { Channel } from "./types";
 
-// Single-user bot: the chat id is config, set once. Available at boot so
-// reminders deliver even before the first inbound message after a restart.
 export const telegram: Channel = {
   name: "telegram",
   start: async (createAgent) => {
     const chatId = Number(process.env.TELEGRAM_CHAT_ID);
     if (!Number.isFinite(chatId)) {
-      console.error("TELEGRAM_CHAT_ID is required in telegram mode (your chat id).");
+      console.error(
+        "TELEGRAM_CHAT_ID is required in telegram mode (your chat id).",
+      );
       process.exit(1);
     }
     const bot = new Bot(process.env.TELEGRAM_TOKEN!);
-    const markdownText = (text: string) => telegramify(text.slice(0, 4096), "escape");
+    const markdownText = (text: string) =>
+      telegramify(text.slice(0, 4096), "escape");
     const { runTurn, syncReminders } = createAgent(async (text) => {
       await bot.api.sendMessage(chatId, markdownText(text), {
         parse_mode: "MarkdownV2",

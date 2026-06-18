@@ -2,8 +2,6 @@ import { tool } from "ai";
 import { z } from "zod";
 import { truncate } from "./util";
 
-// Web tools are backed by Tavily, but that's an implementation detail — the
-// agent only sees generic web_search / web_extract tools.
 const tavily = async (endpoint: "search" | "extract", body: object) => {
   const r = await fetch(`https://api.tavily.com/${endpoint}`, {
     method: "POST",
