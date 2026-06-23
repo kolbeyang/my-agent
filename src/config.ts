@@ -1,13 +1,10 @@
 import { join, resolve } from "node:path";
 
-// The agent's "computer": the working directory for its bash/readFile/writeFile
-// tools. Broader than memory — scratch files, cloned repos, etc. can live here too.
-export const WORKSPACE_DIR = resolve(process.env.WORKSPACE_DIR ?? "./workspace");
+// Bash cwd + readFile/writeFile root — the agent's "computer".
+export const WORKSPACE_ROOT = resolve(process.env.WORKSPACE_ROOT ?? "./workspace");
+// Memory unit, relative to the workspace so it always lives inside it.
+export const MEMORY_ROOT = resolve(WORKSPACE_ROOT, process.env.MEMORY_ROOT ?? "memory");
 
-// The agent's memory: a self-contained, syncable unit inside the workspace.
-export const MEMORY_DIR = resolve(
-  process.env.MEMORY_DIR ?? join(WORKSPACE_DIR, "memory"),
-);
-export const conversationsDir = join(MEMORY_DIR, "conversations");
-export const notesDir = join(MEMORY_DIR, "notes");
-export const remindersDir = join(MEMORY_DIR, "reminders");
+export const conversationsDir = join(MEMORY_ROOT, "conversations");
+export const notesDir = join(MEMORY_ROOT, "notes");
+export const remindersDir = join(MEMORY_ROOT, "reminders");

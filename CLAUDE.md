@@ -16,21 +16,21 @@ Telegram / CLI ──► channel ──► agent.runTurn ──► generateText 
                                   │                tools: bash, readFile, writeFile,
                                   │                       web_search, web_extract, Composio (Gmail/Cal)
                                   │                tracing: Laminar (getTracer)
-                                  ├─ workspace = WORKSPACE_DIR (bash cwd + file-tool root);
-                                  │           memory = WORKSPACE_DIR/memory, greped/written via tools
+                                  ├─ workspace = WORKSPACE_ROOT (bash cwd + file-tool root);
+                                  │           memory = WORKSPACE_ROOT/memory, greped/written via tools
                                   └─ reminders = YAML files in memory/reminders, scheduled by croner
 ```
 
 Two run modes via `--mode`: `telegram` (long-polling worker) and `cli` (local REPL).
 
 ### File map (`src/`)
-- **`index.ts`** — entrypoint. Laminar init, creates `WORKSPACE_DIR` + the memory subdirs, then
+- **`index.ts`** — entrypoint. Laminar init, creates `WORKSPACE_ROOT` + the memory subdirs, then
   dispatches to the channel named by `--mode`.
 - **`agent.ts`** — `createAgent(deliver)` factory. `runTurn` (one `generateText` call,
   mutex-serialized so turns/reminders never overlap) and `syncReminders` (the croner scheduler).
   **The model is set here:** `google/gemini-3.5-flash`.
-- **`config.ts`** — single source of truth for on-disk paths: `WORKSPACE_DIR` (bash/file root) and
-  `MEMORY_DIR` (= `WORKSPACE_DIR/memory`) with its `notes/`, `conversations/`, `reminders/` subdirs.
+- **`config.ts`** — single source of truth for on-disk paths: `WORKSPACE_ROOT` (bash/file root) and
+  `MEMORY_ROOT` (= `WORKSPACE_ROOT/memory`) with its `notes/`, `conversations/`, `reminders/` subdirs.
 - **`conversations.ts`** — transcript log: one JSON file per day under `memory/conversations`.
   History window passed to the model = yesterday's + today's files.
 - **`prompts.ts`** — assembles the system prompt: reads the static prose from `src/AGENTS.md`
@@ -49,8 +49,8 @@ Two run modes via `--mode`: `telegram` (long-polling worker) and `cli` (local RE
 ### The pieces
 - **Model / inference:** `google/gemini-3.5-flash` through the **Vercel AI Gateway**
   (`AI_GATEWAY_API_KEY`) — one key for everything.
-- **Workspace vs. memory.** `WORKSPACE_DIR` is the agent's "computer" — the `bash` cwd and the
-  `readFile`/`writeFile` root. Its `memory/` subdir (`MEMORY_DIR`) is the self-contained, syncable
+- **Workspace vs. memory.** `WORKSPACE_ROOT` is the agent's "computer" — the `bash` cwd and the
+  `readFile`/`writeFile` root. Its `memory/` subdir (`MEMORY_ROOT`) is the self-contained, syncable
   memory unit: the agent reads, writes, and greps its own notes (`memory/notes`), reads the chat
   transcript (`memory/conversations`), and manages reminders (`memory/reminders`) via the tools.
   There is **no built-in backup/sync** — it lives on the host's local disk; back it up
@@ -60,7 +60,7 @@ Two run modes via `--mode`: `telegram` (long-polling worker) and `cli` (local RE
     into the system prompt every turn, so the agent always has its key durable facts without
     searching. `memory/notes` is the *cold* tier (long tail), grepped on demand. The agent
     maintains `MEMORY.md` itself via `readFile`/`writeFile`.
-- **Tools:** `bash` (real shell, cwd = `WORKSPACE_DIR`), `readFile`/`writeFile`, `web_search` +
+- **Tools:** `bash` (real shell, cwd = `WORKSPACE_ROOT`), `readFile`/`writeFile`, `web_search` +
   `web_extract` (Tavily, presented as generic web tools), **Composio** Gmail/Calendar (curated,
   read+draft+create only).
 - **Reminders:** one YAML file per reminder in `memory/reminders`, scheduled with **croner**.
@@ -79,7 +79,7 @@ Two run modes via `--mode`: `telegram` (long-polling worker) and `cli` (local RE
    `memory/conversations` from the agent — it's the read-only transcript.
 4. **No built-in memory backup.** `memory/` is just a directory on local disk — nothing syncs it
    anywhere. If it's lost, the agent's memory is gone. It's a self-contained subdir of
-   `WORKSPACE_DIR` precisely so it can be synced/backed up as a unit (cron `rsync`/snapshot, its
+   `WORKSPACE_ROOT` precisely so it can be synced/backed up as a unit (cron `rsync`/snapshot, its
    own git repo, etc.) without dragging along workspace scratch.
 5. **Composio user id is `<COMPOSIO_USER_ID>`** (`COMPOSIO_USER_ID`) — the Google account is
    connected under that Composio user. Tools are fetched for that id once at module load
@@ -95,7 +95,7 @@ cp .env.example .env     # fill in keys (see below)
 pnpm try                 # CLI REPL — type messages, "exit" to quit  (best for testing)
 pnpm dev                 # Telegram bot with --watch (needs TELEGRAM_TOKEN + TELEGRAM_CHAT_ID)
 ```
-`pnpm try` runs the full agent against a local `WORKSPACE_DIR` (default `./workspace`, with memory
+`pnpm try` runs the full agent against a local `WORKSPACE_ROOT` (default `./workspace`, with memory
 in `./workspace/memory`) — just a local folder, nothing synced anywhere.
 
 ### Environment variables (`.env`)
@@ -104,8 +104,8 @@ in `./workspace/memory`) — just a local folder, nothing synced anywhere.
 | `TELEGRAM_TOKEN` | yes (telegram) | bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | yes (telegram) | your chat id (single-user gate); get it from @userinfobot |
 | `AI_GATEWAY_API_KEY` | yes | all inference via Vercel AI Gateway |
-| `WORKSPACE_DIR` | no | the agent's bash cwd + file-tool root. Default `./workspace` |
-| `MEMORY_DIR` | no | the memory unit (notes/conversations/reminders/MEMORY.md). Default `WORKSPACE_DIR/memory` |
+| `WORKSPACE_ROOT` | no | the agent's bash cwd + file-tool root. Default `./workspace` |
+| `MEMORY_ROOT` | no | the memory unit (notes/conversations/reminders/MEMORY.md). Default `WORKSPACE_ROOT/memory` |
 | `TAVILY_API_KEY` | for web search | tavily.com |
 | `LMNR_PROJECT_API_KEY` | for tracing | Laminar project key |
 | `LMNR_BASE_URL` / `LMNR_HTTP_PORT` / `LMNR_GRPC_PORT` | self-hosted Laminar | point tracing at your own Laminar |
@@ -157,11 +157,11 @@ owns `LMNR_PROJECT_API_KEY`). Note: the `@lmnr-ai/lmnr` bundled `lmnr` binary ha
 (only `eval`/`dev`); use the separate `lmnr-cli` package for SQL.
 
 ### Memory (the memory dir)
-Inspect what the agent has stored, on the host (memory is `$WORKSPACE_DIR/memory`):
+Inspect what the agent has stored, on the host (memory is `$WORKSPACE_ROOT/memory`):
 ```bash
-ssh homelab 'ls -R ~/*/memory 2>/dev/null'    # or the exact WORKSPACE_DIR/memory path
-ssh homelab 'cat $WORKSPACE_DIR/memory/MEMORY.md'
-ssh homelab 'cat $WORKSPACE_DIR/memory/reminders/*.yaml'
+ssh homelab 'ls -R ~/*/memory 2>/dev/null'    # or the exact WORKSPACE_ROOT/memory path
+ssh homelab 'cat $WORKSPACE_ROOT/memory/MEMORY.md'
+ssh homelab 'cat $WORKSPACE_ROOT/memory/reminders/*.yaml'
 ```
 
 ### Composio (Gmail/Calendar connections)
@@ -180,5 +180,5 @@ Auth configs: Gmail `<gmail-auth-config-id>`, Calendar `<calendar-auth-config-id
 Composio tools are curated to **read + draft + create only** — no sending email, no deleting.
 Edit the `COMPOSIO_TOOLS` array in `src/tools/composio.ts` to change the set (then redeploy).
 Full toolkit lists: `composio.tools.get(userId, { toolkits: ["gmail"] })`. The `bash` tool, by
-contrast, is a real unrestricted shell rooted at `WORKSPACE_DIR` — that's intentional (it's how the
+contrast, is a real unrestricted shell rooted at `WORKSPACE_ROOT` — that's intentional (it's how the
 agent manages its own memory), but keep it in mind.

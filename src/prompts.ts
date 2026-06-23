@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { MEMORY_DIR } from "./config";
+import { MEMORY_ROOT } from "./config";
 
 const AGENTS = readFileSync(
   join(import.meta.dirname, "AGENTS.md"),
   "utf8",
 ).trim();
 
-const memoryFile = join(MEMORY_DIR, "MEMORY.md");
+const memoryFile = join(MEMORY_ROOT, "MEMORY.md");
 
 const readMemory = async (): Promise<string> => {
   try {

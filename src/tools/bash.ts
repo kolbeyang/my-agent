@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { WORKSPACE_DIR } from "../config";
+import { WORKSPACE_ROOT } from "../config";
 import { MAX_OUTPUT, tailTruncate } from "./util";
 
 const DEFAULT_TIMEOUT = 120; // seconds
@@ -41,7 +41,7 @@ export const bash = tool({
   execute: async ({ command, timeout }) => {
     const secs = Math.min(timeout ?? DEFAULT_TIMEOUT, MAX_TIMEOUT);
     const r = await execa("bash", ["-lc", command], {
-      cwd: WORKSPACE_DIR,
+      cwd: WORKSPACE_ROOT,
       timeout: secs * 1000,
       reject: false,
       maxBuffer: 50_000_000,
