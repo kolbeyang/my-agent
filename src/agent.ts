@@ -30,6 +30,7 @@ export const createAgent: CreateAgent = (deliver) => {
         const result = await generateText({
           model,
           tools,
+          stopWhen: stepCountIs(20),
           system: await buildSystemPrompt(),
           messages: await getConversationHistoryWindow(),
           experimental_telemetry: { isEnabled: true, tracer: getTracer() },
