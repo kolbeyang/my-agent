@@ -11,7 +11,7 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { tools } from "./tools";
 import { reminderSchema } from "./types";
 
-const model = wrapLanguageModel(aiGateway("google/gemini-3.5-flash"));
+const model = wrapLanguageModel(aiGateway("moonshotai/kimi-k2"));
 
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
