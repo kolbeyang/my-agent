@@ -1,7 +1,9 @@
 import type { ModelMessage } from "ai";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { conversationsDir } from "./config";
+
+const MAX_HISTORY = 25; // most recent messages injected into context
 
 const today = () => new Date().toLocaleDateString("en-CA"); // TODO: make this an env var
 const dayFile = (date: string) => join(conversationsDir, `${date}.json`);
@@ -23,15 +25,19 @@ export const logMessage = async (role: Logged["role"], content: string) => {
   await writeFile(path, JSON.stringify(entries, null, 2));
 };
 
+// The most recent MAX_HISTORY messages, oldest→newest. Reads day files newest-first
+// only until it has enough, so it spans day boundaries without loading everything.
 export const getConversationHistoryWindow = async (): Promise<
   ModelMessage[]
 > => {
-  const yesterday = new Date(Date.now() - 86400_000).toLocaleDateString(
-    "en-CA",
-  );
-  const entries = [
-    ...(await readJson<Logged[]>(dayFile(yesterday), [])),
-    ...(await readJson<Logged[]>(dayFile(today()), [])),
-  ];
-  return entries.map((e) => ({ role: e.role, content: e.content }));
+  const files = (await readdir(conversationsDir))
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .reverse();
+  const entries: Logged[] = [];
+  for (const f of files) {
+    entries.unshift(...(await readJson<Logged[]>(join(conversationsDir, f), [])));
+    if (entries.length >= MAX_HISTORY) break;
+  }
+  return entries.slice(-MAX_HISTORY).map((e) => ({ role: e.role, content: e.content }));
 };
