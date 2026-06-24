@@ -8,10 +8,10 @@ import { parse as parseYaml } from "yaml";
 import { remindersDir } from "./config";
 import { getConversationHistoryWindow, logMessage } from "./conversations";
 import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
-import { tools } from "./tools";
+import { coreTools, tools } from "./tools";
 import { reminderSchema } from "./types";
 
-const model = wrapLanguageModel(aiGateway("minimax/minimax-m3"));
+const model = wrapLanguageModel(aiGateway("zai/glm-5.2-fast"));
 
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
@@ -30,6 +30,14 @@ export const createAgent: CreateAgent = (deliver) => {
         const result = await generateText({
           model,
           tools,
+          activeTools: Object.keys(coreTools),
+          prepareStep: ({ steps }) => {
+            const isListAllTools = steps.some((s) =>
+              s.toolCalls.some((c) => c.toolName === "list_tools"),
+            );
+            const activeTools = Object.keys(isListAllTools ? tools : coreTools);
+            return { activeTools };
+          },
           stopWhen: stepCountIs(20),
           system: await buildSystemPrompt(),
           messages: await getConversationHistoryWindow(),
@@ -65,10 +73,9 @@ export const createAgent: CreateAgent = (deliver) => {
         continue;
       }
       // A one-shot whose instant has passed (fired, or missed while down) is deleted, not scheduled.
-      if (
-        reminder.type === "absolute" &&
-        Date.parse(reminder.at) <= Date.now()
-      ) {
+      const is_past_reminder =
+        reminder.type === "absolute" && Date.parse(reminder.at) <= Date.now();
+      if (is_past_reminder) {
         await rm(path, { force: true });
         continue;
       }

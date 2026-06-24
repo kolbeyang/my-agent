@@ -10,10 +10,9 @@ import { MAX_OUTPUT, tailTruncate } from "./util";
 
 const DEFAULT_TIMEOUT = 120; // seconds
 const MAX_TIMEOUT = 600; // seconds
-const SPILL_DIR = join(tmpdir(), "harry-bash"); // full output spills here, off the memory repo
+const SPILL_DIR = join(tmpdir(), "bash"); // full output spills here, off the memory repo
 
 // Cap one stream: keep the tail; if it overflowed, write the full text to a temp
-// file and prepend a note pointing the agent at it (readable via readFile or bash).
 const capStream = async (
   stream: "stdout" | "stderr",
   text: string,
@@ -29,14 +28,15 @@ const capStream = async (
 export const bash = tool({
   description:
     "Run a bash command on your computer (working dir = your home; your memory lives in ./memory). Returns stdout, stderr, exitCode; a non-zero exit is returned, not thrown. " +
-    `Output keeps the last ~${MAX_OUTPUT / 1000}k chars per stream; anything longer is saved to a temp file whose path is included. ` +
-    `Default timeout ${DEFAULT_TIMEOUT}s (max ${MAX_TIMEOUT}s).`,
+    `Output keeps the last ~${MAX_OUTPUT / 1000}k chars per stream; anything longer is saved to a temp file whose path is included. Default timeout ${DEFAULT_TIMEOUT}s (max ${MAX_TIMEOUT}s).`,
   inputSchema: z.object({
     command: z.string().describe("The bash command to run."),
     timeout: z
       .number()
       .optional()
-      .describe(`Timeout in seconds (default ${DEFAULT_TIMEOUT}, max ${MAX_TIMEOUT}).`),
+      .describe(
+        `Timeout in seconds (default ${DEFAULT_TIMEOUT}, max ${MAX_TIMEOUT}).`,
+      ),
   }),
   execute: async ({ command, timeout }) => {
     const secs = Math.min(timeout ?? DEFAULT_TIMEOUT, MAX_TIMEOUT);
