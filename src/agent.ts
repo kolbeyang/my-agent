@@ -28,7 +28,10 @@ export type Agent = {
   runTurn: (message: string) => Promise<void>;
   syncReminders: () => Promise<void>;
 };
-export type CreateAgent = (deliver: (text: string) => Promise<void>) => Agent;
+// Channels consume the reply as a stream of text deltas; they decide how to
+// render it (CLI prints, Telegram edits a message).
+export type Deliver = (stream: AsyncIterable<string>) => Promise<void>;
+export type CreateAgent = (deliver: Deliver) => Agent;
 
 export const createAgent: CreateAgent = (deliver) => {
   const lock = new Mutex();
@@ -46,13 +49,20 @@ export const createAgent: CreateAgent = (deliver) => {
           stopWhen: isStepCount(20),
           instructions: await buildSystemPrompt(),
         });
-        const result = await agent.generate({
+        const result = await agent.stream({
           messages: await getConversationHistoryWindow(),
         });
-        if (result.text.trim()) {
-          await deliver(result.text);
-          await logMessage("assistant", result.text);
-        }
+        // Forward deltas to the channel while accumulating the full reply to log.
+        let reply = "";
+        await deliver(
+          (async function* () {
+            for await (const delta of result.textStream) {
+              reply += delta;
+              yield delta;
+            }
+          })(),
+        );
+        if (reply.trim()) await logMessage("assistant", reply);
       } catch (e: any) {
         console.error("turn failed:", e?.message ?? e);
       }
