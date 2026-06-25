@@ -1,5 +1,11 @@
 import { wrapLanguageModel } from "@lmnr-ai/lmnr";
-import { gateway as aiGateway, isStepCount, tool, ToolLoopAgent, type ToolSet } from "ai";
+import {
+  gateway as aiGateway,
+  isStepCount,
+  tool,
+  ToolLoopAgent,
+  type ToolSet,
+} from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
@@ -24,7 +30,10 @@ export type Agent = {
 // render it (CLI prints, Telegram edits a message).
 export type Deliver = (stream: AsyncIterable<string>) => Promise<void>;
 // Sends a file (chart/image) to the user. Path is already resolved to absolute.
-export type SendImage = (absolutePath: string, caption?: string) => Promise<void>;
+export type SendImage = (
+  absolutePath: string,
+  caption?: string,
+) => Promise<void>;
 export type CreateAgent = (deliver: Deliver, sendImage: SendImage) => Agent;
 
 export const createAgent: CreateAgent = (deliver, sendImage) => {
@@ -64,7 +73,7 @@ export const createAgent: CreateAgent = (deliver, sendImage) => {
           tools: allTools,
           activeTools: coreNames,
           prepareStep: revealExtraToolsAfterListTools,
-          stopWhen: isStepCount(20),
+          stopWhen: isStepCount(100),
           instructions: await buildSystemPrompt(),
         });
         const result = await agent.stream({
