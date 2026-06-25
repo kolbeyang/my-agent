@@ -11,7 +11,7 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, tools } from "./tools";
 import { reminderSchema } from "./types";
 
-const model = wrapLanguageModel(aiGateway("zai/glm-5.2-fast"));
+const model = wrapLanguageModel(aiGateway("google/gemini-3.5-flash"));
 
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
