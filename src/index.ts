@@ -1,4 +1,4 @@
-import { Laminar } from "@lmnr-ai/lmnr";
+import { Laminar, registerAiSdkTelemetry } from "@lmnr-ai/lmnr";
 import { mkdir } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createAgent } from "./agent";
@@ -16,6 +16,9 @@ Laminar.initialize({
     disableBatch: true,
   }),
 });
+
+// AI SDK v7: global telemetry integration replaces the per-call tracer.
+registerAiSdkTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });

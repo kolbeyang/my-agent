@@ -1,5 +1,4 @@
-import { getTracer, wrapLanguageModel } from "@lmnr-ai/lmnr";
-import { gateway as aiGateway, generateText, stepCountIs } from "ai";
+import { gateway as aiGateway, generateText, isStepCount } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
@@ -11,7 +10,7 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, tools } from "./tools";
 import { reminderSchema } from "./types";
 
-const model = wrapLanguageModel(aiGateway("google/gemini-3.5-flash"));
+const model = aiGateway("google/gemini-3.5-flash");
 
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
@@ -38,10 +37,9 @@ export const createAgent: CreateAgent = (deliver) => {
             const activeTools = Object.keys(isListAllTools ? tools : coreTools);
             return { activeTools };
           },
-          stopWhen: stepCountIs(20),
-          system: await buildSystemPrompt(),
+          stopWhen: isStepCount(20),
+          instructions: await buildSystemPrompt(),
           messages: await getConversationHistoryWindow(),
-          experimental_telemetry: { isEnabled: true, tracer: getTracer() },
         });
         if (result.text.trim()) {
           await deliver(result.text);
