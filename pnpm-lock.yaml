@@ -17,6 +17,12 @@ importers:
       '@grammyjs/auto-chat-action':
         specifier: ^0.1.1
         version: 0.1.1(grammy@1.43.0)
+      '@grammyjs/auto-retry':
+        specifier: ^2.0.2
+        version: 2.0.2(grammy@1.43.0)
+      '@grammyjs/stream':
+        specifier: ^1.1.0
+        version: 1.1.0(grammy@1.43.0)
       '@lmnr-ai/lmnr':
         specifier: ^0.8.35
         version: 0.8.35
@@ -412,6 +418,18 @@ packages:
     resolution: {integrity: sha512-70Jdy+keIri4452tluaZpKtHag5gD8pNczoXqajsnsx7pJC5wg3DAQ5unpt0xJb8KsVBAGWuJb298SBl3TVecg==}
     peerDependencies:
       grammy: ^1.0.0
+
+  '@grammyjs/auto-retry@2.0.2':
+    resolution: {integrity: sha512-b4A4p5jlYDiQtW0c0FXYe11WMkYoiW+5rvOaDMCOk1h7Pu2SDl7B7gmFF8cthWCx2+M2nWLOsBxAgbBG4kKWYg==}
+    engines: {node: '>=12.20.0 || >=14.13.1'}
+    peerDependencies:
+      grammy: ^1.10.0
+
+  '@grammyjs/stream@1.1.0':
+    resolution: {integrity: sha512-xaVjR5dg68Ef/my0O0gSB57OxZObdmfTd0WsjkVVP1NjW02RAkR7LNCA0QwZQSO++R5CHPdDcmOrG+JVkJguRQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      grammy: ^1.39.0
 
   '@grammyjs/types@3.27.3':
     resolution: {integrity: sha512-yUKMLliGsGbnxu96YUJ7km7B0zy4PzeH/Jvti5705R/LeKDMqkDV4DckMSt+OrliWQpTwQljHE0QLol5zgxBkg==}
@@ -1728,6 +1746,18 @@ snapshots:
 
   '@grammyjs/auto-chat-action@0.1.1(grammy@1.43.0)':
     dependencies:
+      grammy: 1.43.0
+
+  '@grammyjs/auto-retry@2.0.2(grammy@1.43.0)':
+    dependencies:
+      debug: 4.4.3
+      grammy: 1.43.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@grammyjs/stream@1.1.0(grammy@1.43.0)':
+    dependencies:
+      abort-controller: 3.0.0
       grammy: 1.43.0
 
   '@grammyjs/types@3.27.3': {}

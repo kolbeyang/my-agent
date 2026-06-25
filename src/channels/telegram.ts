@@ -1,7 +1,8 @@
 import { autoChatAction, type AutoChatActionFlavor } from "@grammyjs/auto-chat-action";
+import { autoRetry } from "@grammyjs/auto-retry";
+import { streamApi } from "@grammyjs/stream";
 import { Laminar } from "@lmnr-ai/lmnr";
 import { Bot, type Context } from "grammy";
-import telegramify from "telegramify-markdown";
 import type { Channel } from "./types";
 
 type BotContext = Context & AutoChatActionFlavor;
@@ -17,45 +18,15 @@ export const telegram: Channel = {
       process.exit(1);
     }
     const bot = new Bot<BotContext>(process.env.TELEGRAM_TOKEN!);
+    bot.api.config.use(autoRetry()); // turn rate limits into slower calls
     bot.use(autoChatAction());
-    const markdownText = (text: string) =>
-      telegramify(text.slice(0, 4096), "escape");
-    // Stream the reply: send a first message, edit it (throttled) as deltas
-    // arrive, then a final edit rendered as MarkdownV2. Edits use plain text
-    // mid-stream so partial/unbalanced markdown can't fail the parse.
-    const { runTurn, syncReminders } = createAgent(async (stream) => {
-      let buf = "";
-      let messageId: number | undefined;
-      let lastShown = "";
-      let lastEdit = 0;
-      const render = async (final: boolean) => {
-        const plain = buf.slice(0, 4096);
-        if (!plain || (!final && plain === lastShown)) return;
-        lastShown = plain;
-        try {
-          if (messageId === undefined) {
-            const m = await bot.api.sendMessage(chatId, plain);
-            messageId = m.message_id;
-          } else if (final) {
-            await bot.api.editMessageText(chatId, messageId, markdownText(buf), {
-              parse_mode: "MarkdownV2",
-            });
-          } else {
-            await bot.api.editMessageText(chatId, messageId, plain);
-          }
-        } catch {
-          // Telegram rejects no-op edits / flaky markdown; keep streaming.
-        }
-      };
-      for await (const delta of stream) {
-        buf += delta;
-        if (Date.now() - lastEdit >= 1200) {
-          lastEdit = Date.now();
-          await render(false);
-        }
-      }
-      await render(true);
-    });
+    // @grammyjs/stream renders the delta stream into a live-updating message
+    // (draft edits while streaming, final markdown when done, 4096 split).
+    const streamer = streamApi(bot.api.raw);
+    let draftId = 0;
+    const { runTurn, syncReminders } = createAgent((stream) =>
+      streamer.streamMarkdown(chatId, draftId++, stream).then(() => {}),
+    );
     bot.on("message:text", async (ctx) => {
       if (ctx.chat.id !== chatId) return; // ignore anyone who isn't the owner
       ctx.chatAction = "typing"; // auto-refreshed until the handler returns
