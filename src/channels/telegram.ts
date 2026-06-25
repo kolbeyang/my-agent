@@ -2,7 +2,7 @@ import { autoChatAction, type AutoChatActionFlavor } from "@grammyjs/auto-chat-a
 import { autoRetry } from "@grammyjs/auto-retry";
 import { streamApi } from "@grammyjs/stream";
 import { Laminar } from "@lmnr-ai/lmnr";
-import { Bot, type Context } from "grammy";
+import { Bot, InputFile, type Context } from "grammy";
 import type { Channel } from "./types";
 
 type BotContext = Context & AutoChatActionFlavor;
@@ -24,8 +24,13 @@ export const telegram: Channel = {
     // (draft edits while streaming, final markdown when done, 4096 split).
     const streamer = streamApi(bot.api.raw);
     let draftId = 0;
-    const { runTurn, syncReminders } = createAgent((stream) =>
-      streamer.streamMarkdown(chatId, draftId++, stream).then(() => {}),
+    const { runTurn, syncReminders } = createAgent(
+      (stream) =>
+        streamer.streamMarkdown(chatId, draftId++, stream).then(() => {}),
+      (absPath, caption) =>
+        bot.api
+          .sendPhoto(chatId, new InputFile(absPath), caption ? { caption } : {})
+          .then(() => {}),
     );
     bot.on("message:text", async (ctx) => {
       if (ctx.chat.id !== chatId) return; // ignore anyone who isn't the owner

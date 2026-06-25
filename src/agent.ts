@@ -1,11 +1,12 @@
 import { wrapLanguageModel } from "@lmnr-ai/lmnr";
-import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
+import { gateway as aiGateway, isStepCount, tool, ToolLoopAgent, type ToolSet } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { remindersDir } from "./config";
+import { z } from "zod";
+import { remindersDir, WORKSPACE_ROOT } from "./config";
 import { getConversationHistoryWindow, logMessage } from "./conversations";
 import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, tools } from "./tools";
@@ -15,15 +16,6 @@ import { reminderSchema } from "./types";
 // replay caching when LMNR_DEBUG replay vars are set.
 const model = wrapLanguageModel(aiGateway("google/gemini-3.5-flash"));
 
-// Only core tools are advertised; list_tools reveals the rest, and prepareStep
-// activates the full set once it's been called.
-const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
-  const calledListTools = steps.some((s) =>
-    s.toolCalls.some((c: any) => c.toolName === "list_tools"),
-  );
-  return { activeTools: Object.keys(calledListTools ? tools : coreTools) };
-};
-
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
   syncReminders: () => Promise<void>;
@@ -31,11 +23,37 @@ export type Agent = {
 // Channels consume the reply as a stream of text deltas; they decide how to
 // render it (CLI prints, Telegram edits a message).
 export type Deliver = (stream: AsyncIterable<string>) => Promise<void>;
-export type CreateAgent = (deliver: Deliver) => Agent;
+// Sends a file (chart/image) to the user. Path is already resolved to absolute.
+export type SendImage = (absolutePath: string, caption?: string) => Promise<void>;
+export type CreateAgent = (deliver: Deliver, sendImage: SendImage) => Agent;
 
-export const createAgent: CreateAgent = (deliver) => {
+export const createAgent: CreateAgent = (deliver, sendImage) => {
   const lock = new Mutex();
   let jobs: Cron[] = [];
+
+  // Channel-bound tool: lets the agent push an image (e.g. a chart it rendered) to the user.
+  const send_image = tool({
+    description:
+      "Send an image file to the user in the chat (e.g. a chart PNG you generated). Path is relative to your home directory; optional short caption.",
+    inputSchema: z.object({ path: z.string(), caption: z.string().optional() }),
+    execute: async ({ path, caption }) => {
+      try {
+        await sendImage(resolve(WORKSPACE_ROOT, path), caption);
+        return { ok: true };
+      } catch (e: any) {
+        return { error: e?.message ?? String(e) };
+      }
+    },
+  });
+  const coreNames = [...Object.keys(coreTools), "send_image"];
+  const allTools: ToolSet = { ...tools, send_image };
+  // Only core tools are advertised; list_tools reveals the rest, activated once called.
+  const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
+    const calledListTools = steps.some((s) =>
+      s.toolCalls.some((c: any) => c.toolName === "list_tools"),
+    );
+    return { activeTools: calledListTools ? Object.keys(allTools) : coreNames };
+  };
 
   const runTurn = (message: string) =>
     lock.runExclusive(async () => {
@@ -43,8 +61,8 @@ export const createAgent: CreateAgent = (deliver) => {
         await logMessage("user", message);
         const agent = new ToolLoopAgent({
           model,
-          tools,
-          activeTools: Object.keys(coreTools),
+          tools: allTools,
+          activeTools: coreNames,
           prepareStep: revealExtraToolsAfterListTools,
           stopWhen: isStepCount(20),
           instructions: await buildSystemPrompt(),
