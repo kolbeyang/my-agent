@@ -1,4 +1,5 @@
-import { gateway as aiGateway, generateText, isStepCount } from "ai";
+import { wrapLanguageModel } from "@lmnr-ai/lmnr";
+import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
@@ -10,7 +11,18 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, tools } from "./tools";
 import { reminderSchema } from "./types";
 
-const model = aiGateway("google/gemini-3.5-flash");
+// wrapLanguageModel is a no-op in normal runs; it enables Laminar debugger
+// replay caching when LMNR_DEBUG replay vars are set.
+const model = wrapLanguageModel(aiGateway("google/gemini-3.5-flash"));
+
+// Only core tools are advertised; list_tools reveals the rest, and prepareStep
+// activates the full set once it's been called.
+const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
+  const calledListTools = steps.some((s) =>
+    s.toolCalls.some((c: any) => c.toolName === "list_tools"),
+  );
+  return { activeTools: Object.keys(calledListTools ? tools : coreTools) };
+};
 
 export type Agent = {
   runTurn: (message: string) => Promise<void>;
@@ -26,19 +38,15 @@ export const createAgent: CreateAgent = (deliver) => {
     lock.runExclusive(async () => {
       try {
         await logMessage("user", message);
-        const result = await generateText({
+        const agent = new ToolLoopAgent({
           model,
           tools,
           activeTools: Object.keys(coreTools),
-          prepareStep: ({ steps }) => {
-            const isListAllTools = steps.some((s) =>
-              s.toolCalls.some((c) => c.toolName === "list_tools"),
-            );
-            const activeTools = Object.keys(isListAllTools ? tools : coreTools);
-            return { activeTools };
-          },
+          prepareStep: revealExtraToolsAfterListTools,
           stopWhen: isStepCount(20),
           instructions: await buildSystemPrompt(),
+        });
+        const result = await agent.generate({
           messages: await getConversationHistoryWindow(),
         });
         if (result.text.trim()) {
