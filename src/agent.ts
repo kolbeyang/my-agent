@@ -39,6 +39,8 @@ export const createAgent: CreateAgent = (deliver, sendFile) => {
 
   const runTurn = (message: string) =>
     lock.runExclusive(async () => {
+      const start = Date.now();
+      console.log("turn start");
       try {
         await logMessage("user", message);
         const agent = new ToolLoopAgent<never, AgentTools>({
@@ -68,6 +70,7 @@ export const createAgent: CreateAgent = (deliver, sendFile) => {
         console.error("turn failed:", e?.message ?? e);
       }
       await syncReminders();
+      console.log(`turn done in ${Date.now() - start}ms`);
     });
 
   // Stop every live job and rebuild from the files on disk.

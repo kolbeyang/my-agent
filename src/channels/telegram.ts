@@ -22,7 +22,8 @@ export const telegram: Channel = {
       process.exit(1);
     }
     const bot = new Bot<BotContext>(process.env.TELEGRAM_TOKEN!);
-    bot.api.config.use(autoRetry()); // turn rate limits into slower calls
+    // bound retries so a long flood-wait throws (logged) instead of silently holding the turn mutex
+    bot.api.config.use(autoRetry({ maxDelaySeconds: 5, maxRetryAttempts: 3 }));
     bot.use(autoChatAction());
     // @grammyjs/stream renders the delta stream into a live-updating message
     // (draft edits while streaming, final markdown when done, 4096 split).
