@@ -24,8 +24,6 @@ export const logMessage = async (role: Logged["role"], content: string) => {
   await writeFile(path, JSON.stringify(entries, null, 2));
 };
 
-// The most recent MAX_HISTORY messages, oldest→newest. Reads day files newest-first
-// only until it has enough, so it spans day boundaries without loading everything.
 export const getConversationHistoryWindow = async (): Promise<
   ModelMessage[]
 > => {

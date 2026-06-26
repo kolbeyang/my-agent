@@ -13,7 +13,9 @@ export const cli: Channel = {
         stdout.write("\n\n");
       },
       async (absPath, caption) => {
-        stdout.write(`\n[image: ${absPath}${caption ? ` — ${caption}` : ""}]\n`);
+        stdout.write(
+          `\n[sent file: ${absPath}${caption ? ` — ${caption}` : ""}]\n`,
+        );
       },
     );
     await syncReminders();

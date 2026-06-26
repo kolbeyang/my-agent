@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { WORKSPACE_ROOT } from "../config";
-import { MAX_OUTPUT, tailTruncate } from "./util";
+import { MAX_OUTPUT, tailTruncate } from "./files";
 
 const DEFAULT_TIMEOUT = 120; // seconds
 const MAX_TIMEOUT = 600; // seconds

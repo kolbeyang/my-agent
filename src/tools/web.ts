@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { truncate } from "./util";
+import { truncate } from "./files";
 
 const tavily = async (endpoint: "search" | "extract", body: object) => {
   const r = await fetch(`https://api.tavily.com/${endpoint}`, {

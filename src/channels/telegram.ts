@@ -24,13 +24,20 @@ export const telegram: Channel = {
     // (draft edits while streaming, final markdown when done, 4096 split).
     const streamer = streamApi(bot.api.raw);
     let draftId = 0;
+    // Images go as photos (inline preview); everything else as a document.
+    const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp"];
     const { runTurn, syncReminders } = createAgent(
       (stream) =>
         streamer.streamMarkdown(chatId, draftId++, stream).then(() => {}),
-      (absPath, caption) =>
-        bot.api
-          .sendPhoto(chatId, new InputFile(absPath), caption ? { caption } : {})
-          .then(() => {}),
+      (absPath, caption) => {
+        const file = new InputFile(absPath);
+        const opts = caption ? { caption } : {};
+        const ext = absPath.toLowerCase().split(".").pop() ?? "";
+        const sent = IMAGE_EXT.includes(ext)
+          ? bot.api.sendPhoto(chatId, file, opts)
+          : bot.api.sendDocument(chatId, file, opts);
+        return sent.then(() => {});
+      },
     );
     bot.on("message:text", async (ctx) => {
       if (ctx.chat.id !== chatId) return; // ignore anyone who isn't the owner
