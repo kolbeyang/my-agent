@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import {
   autoChatAction,
   type AutoChatActionFlavor,
@@ -26,12 +27,13 @@ export const telegram: Channel = {
     // @grammyjs/stream renders the delta stream into a live-updating message
     // (draft edits while streaming, final markdown when done, 4096 split).
     const streamer = streamApi(bot.api.raw);
-    let draftId = 1;
+    // unique non-zero draft id per message; sequential ids collide after restart (RANDOM_ID_INVALID)
+    const newDraftId = () => randomInt(1, 2 ** 48);
     // Images go as photos (inline preview); everything else as a document.
     const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp"];
     const { runTurn, syncReminders } = createAgent(
       (stream) =>
-        streamer.streamMarkdown(chatId, draftId++, stream).then(() => {}),
+        streamer.streamMarkdown(chatId, newDraftId(), stream).then(() => {}),
       (absPath, caption) => {
         const file = new InputFile(absPath);
         const opts = caption ? { caption } : {};
