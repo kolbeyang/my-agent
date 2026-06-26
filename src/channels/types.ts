@@ -1,4 +1,4 @@
-import type { CreateAgent } from "../agent";
+import type { CreateAgent } from "../types";
 
 /**
  * A delivery surface (Telegram, CLI, …). Each channel owns how it receives
