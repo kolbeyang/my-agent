@@ -49,7 +49,10 @@ export const telegram: Channel = {
       },
     );
     bot.on("message:text", async (ctx) => {
-      if (ctx.chat.id !== chatId) return; // ignore anyone who isn't the owner
+      if (ctx.chat.id !== chatId) {
+        console.log(`ignored message from chat ${ctx.chat.id} (gate ${chatId})`);
+        return; // ignore anyone who isn't the owner
+      }
       ctx.chatAction = "typing"; // auto-refreshed until the handler returns
       await runTurn(ctx.message.text);
     });
