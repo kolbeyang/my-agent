@@ -1,7 +1,7 @@
 import { Laminar } from "@lmnr-ai/lmnr";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import type { Channel } from "./types";
+import { Channel } from "../types";
 
 export const cli: Channel = {
   name: "cli",

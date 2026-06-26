@@ -1,7 +1,6 @@
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 
-// Curated, non-destructive: read + draft + create/write — no sending email, no deleting/clearing.
 const COMPOSIO_TOOLS = [
   "GMAIL_FETCH_EMAILS",
   "GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID",

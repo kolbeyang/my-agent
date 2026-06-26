@@ -1,4 +1,4 @@
-import { tool, type ToolSet } from "ai";
+import { Tool, tool, type ToolSet } from "ai";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { WORKSPACE_ROOT } from "../config";
@@ -7,12 +7,16 @@ import { getComposioTools } from "./composio";
 import { readFile, writeFile } from "./files";
 import { web_extract, web_search } from "./web";
 
+export type MyAgentTools = ToolSet & {
+  send_file: Tool<any, any, { sendFile: SendFile }>;
+};
+
 export type SendFile = (
   absolutePath: string,
   caption?: string,
 ) => Promise<void>;
 
-export const coreTools: ToolSet = {
+export const coreTools: MyAgentTools = {
   bash,
   readFile,
   writeFile,
@@ -44,4 +48,4 @@ export const coreTools: ToolSet = {
 };
 
 const extraTools = await getComposioTools();
-export const tools: ToolSet = { ...coreTools, ...extraTools };
+export const tools: MyAgentTools = { ...coreTools, ...extraTools };

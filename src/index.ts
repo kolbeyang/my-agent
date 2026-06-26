@@ -4,7 +4,6 @@ import { parseArgs } from "node:util";
 import { createAgent } from "./agent";
 import { cli } from "./channels/cli";
 import { telegram } from "./channels/telegram";
-import type { Channel } from "./channels/types";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
 
 Laminar.initialize({
@@ -17,25 +16,18 @@ Laminar.initialize({
   }),
 });
 
-// AI SDK v7: global telemetry integration replaces the per-call tracer.
 registerAiSdkTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });
 await mkdir(remindersDir, { recursive: true });
 
-const {
-  values: { mode },
-} = parseArgs({ options: { mode: { type: "string" } } });
+const { values } = parseArgs({ options: { mode: { type: "string" } } });
+const mode = values.mode;
 
-const channels: Record<string, Channel> = {
-  [telegram.name]: telegram,
-  [cli.name]: cli,
-};
-
-const channel = mode ? channels[mode] : undefined;
-if (!channel) {
-  console.error(`Specify --mode ${Object.keys(channels).join(" or ")}`);
+if (mode === telegram.name) telegram.start(createAgent);
+else if (mode === cli.name) cli.start(createAgent);
+else {
+  console.error(`Specify --mode ${telegram.name} or ${cli.name}`);
   process.exit(1);
 }
-await channel.start(createAgent);

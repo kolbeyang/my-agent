@@ -1,11 +1,5 @@
 import { wrapLanguageModel } from "@lmnr-ai/lmnr";
-import {
-  gateway as aiGateway,
-  isStepCount,
-  type Tool,
-  ToolLoopAgent,
-  type ToolSet,
-} from "ai";
+import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
@@ -14,16 +8,10 @@ import { parse as parseYaml } from "yaml";
 import { remindersDir } from "./config";
 import { getConversationHistoryWindow, logMessage } from "./conversations";
 import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
-import { coreTools, tools, type SendFile } from "./tools";
+import { coreTools, MyAgentTools, tools } from "./tools";
 import { type CreateAgent, reminderSchema } from "./types";
 
 const model = wrapLanguageModel(aiGateway("deepseek/deepseek-v4-pro"));
-
-// send_file declares a `sendFile` context dependency via its contextSchema;
-// naming it in the agent's tool set is what makes `toolsContext` type-checked.
-type AgentTools = ToolSet & {
-  send_file: Tool<any, any, { sendFile: SendFile }>;
-};
 
 const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
   const calledListTools = steps.some((s) =>
@@ -43,9 +31,9 @@ export const createAgent: CreateAgent = (deliver, sendFile) => {
       console.log("turn start");
       try {
         await logMessage("user", message);
-        const agent = new ToolLoopAgent<never, AgentTools>({
+        const agent = new ToolLoopAgent<never, MyAgentTools>({
           model,
-          tools: tools as AgentTools,
+          tools: tools,
           activeTools: Object.keys(coreTools),
           prepareStep: revealExtraToolsAfterListTools,
           stopWhen: isStepCount(100),
@@ -73,7 +61,6 @@ export const createAgent: CreateAgent = (deliver, sendFile) => {
       console.log(`turn done in ${Date.now() - start}ms`);
     });
 
-  // Stop every live job and rebuild from the files on disk.
   const syncReminders = async () => {
     jobs.forEach((job) => job.stop());
     jobs = [];

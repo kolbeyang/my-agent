@@ -10,21 +10,13 @@ const AGENTS = readFileSync(
 
 const memoryFile = join(MEMORY_ROOT, "MEMORY.md");
 
-const readMemory = async (): Promise<string> => {
+export const buildSystemPrompt = async () => {
+  let memory = "";
   try {
-    const content = (await readFile(memoryFile, "utf8")).trim();
-    if (!content) return "";
-    return `\n## MEMORY.md — your always-loaded memory
-The contents of memory/MEMORY.md, injected here automatically every turn. Keep it current: store durable facts about the user and yourself here so you always have them without searching.
-
-${content}\n`;
-  } catch {
-    return ""; // no MEMORY.md yet — fine
-  }
+    memory = (await readFile(memoryFile, "utf8")).trim();
+  } catch {}
+  return `${AGENTS}\n${memory}\nThe current date and time is ${new Date().toString()}\n`;
 };
-
-export const buildSystemPrompt = async () =>
-  `${AGENTS}\n${await readMemory()}\nThe current date and time is ${new Date().toString()}\n`;
 
 export const REMINDER_PROMPT =
   "[REMINDER] This is a reminder you scheduled yourself to carry out a request from the user:";
