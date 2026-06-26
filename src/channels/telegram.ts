@@ -5,6 +5,7 @@ import {
 } from "@grammyjs/auto-chat-action";
 import { autoRetry } from "@grammyjs/auto-retry";
 import { streamApi } from "@grammyjs/stream";
+import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { Laminar } from "@lmnr-ai/lmnr";
 import { Bot, InputFile, type Context } from "grammy";
 import type { Channel } from "./types";
@@ -24,6 +25,8 @@ export const telegram: Channel = {
     const bot = new Bot<BotContext>(process.env.TELEGRAM_TOKEN!);
     // bound retries so a long flood-wait throws (logged) instead of silently holding the turn mutex
     bot.api.config.use(autoRetry({ maxDelaySeconds: 5, maxRetryAttempts: 3 }));
+    // queue outgoing calls under Telegram's per-chat/global limits so streaming edits don't burst into 429s
+    bot.api.config.use(apiThrottler());
     bot.use(autoChatAction());
     // @grammyjs/stream renders the delta stream into a live-updating message
     // (draft edits while streaming, final markdown when done, 4096 split).

@@ -14,6 +14,7 @@
     "@grammyjs/auto-chat-action": "^0.1.1",
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/stream": "^1.1.0",
+    "@grammyjs/transformer-throttler": "^1.2.1",
     "@lmnr-ai/lmnr": "^0.8.35",
     "ai": "^7.0.0",
     "async-mutex": "^0.5.0",
