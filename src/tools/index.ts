@@ -6,15 +6,11 @@ import { bash } from "./bash";
 import { getComposioTools } from "./composio";
 import { readFile, writeFile } from "./files";
 import { web_extract, web_search } from "./web";
+import { SendFile } from "../types";
 
 export type MyAgentTools = ToolSet & {
   send_file: Tool<any, any, { sendFile: SendFile }>;
 };
-
-export type SendFile = (
-  absolutePath: string,
-  caption?: string,
-) => Promise<void>;
 
 export const coreTools: MyAgentTools = {
   bash,

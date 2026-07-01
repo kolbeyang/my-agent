@@ -1,24 +1,21 @@
 import { Laminar } from "@lmnr-ai/lmnr";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { Channel } from "../types";
+import { Agent, Channel } from "../types";
 
-export const cli: Channel = {
-  name: "cli",
-  start: async (createAgent) => {
-    const { runTurn, syncReminders } = createAgent(
-      async (stream) => {
-        stdout.write("\nAGENT: ");
-        for await (const delta of stream) stdout.write(delta);
-        stdout.write("\n\n");
-      },
-      async (absPath, caption) => {
-        stdout.write(
-          `\n[sent file: ${absPath}${caption ? ` — ${caption}` : ""}]\n`,
-        );
-      },
+export function createCli(): Channel {
+  const deliver = async (stream: AsyncIterable<string>) => {
+    stdout.write("\nAGENT: ");
+    for await (const delta of stream) stdout.write(delta);
+    stdout.write("\n\n");
+  };
+  const sendFile = async (absPath: string, caption?: string) => {
+    stdout.write(
+      `\n[sent file: ${absPath}${caption ? ` — ${caption}` : ""}]\n`,
     );
-    await syncReminders();
+  };
+
+  const listen = async (agent: Agent) => {
     const rl = createInterface({ input: stdin, output: stdout });
     while (true) {
       let line: string;
@@ -29,9 +26,11 @@ export const cli: Channel = {
       }
       if (line === "exit") break;
       if (!line) continue;
-      await runTurn(line);
+      await agent.runTurn(line, deliver, sendFile);
     }
     await Laminar.shutdown();
     process.exit(0);
-  },
-};
+  };
+
+  return { deliver, sendFile, listen };
+}

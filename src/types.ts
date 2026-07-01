@@ -1,12 +1,14 @@
 import { z } from "zod";
-import type { SendFile } from "./tools";
 
 export type Agent = {
-  runTurn: (message: string) => Promise<void>;
+  runTurn: (
+    message: string,
+    deliver: Deliver,
+    sendFile: SendFile,
+  ) => Promise<void>;
   syncReminders: () => Promise<void>;
 };
 export type Deliver = (stream: AsyncIterable<string>) => Promise<void>;
-export type CreateAgent = (deliver: Deliver, sendFile: SendFile) => Agent;
 
 export const reminderSchema = z
   .discriminatedUnion("type", [
@@ -17,7 +19,13 @@ export const reminderSchema = z
 
 export type Reminder = z.infer<typeof reminderSchema>;
 
-export interface Channel {
-  name: string;
-  start(createAgent: CreateAgent): Promise<void>;
-}
+export type SendFile = (
+  absolutePath: string,
+  caption?: string,
+) => Promise<void>;
+
+export type Channel = {
+  deliver?: Deliver;
+  sendFile?: SendFile;
+  listen(agent: Agent): Promise<void> | void;
+};

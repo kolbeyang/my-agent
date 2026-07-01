@@ -9,7 +9,7 @@ import { remindersDir } from "./config";
 import { getConversationHistoryWindow, logMessage } from "./conversations";
 import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, MyAgentTools, tools } from "./tools";
-import { type CreateAgent, reminderSchema } from "./types";
+import { type Deliver, reminderSchema, type SendFile } from "./types";
 
 const model = wrapLanguageModel(aiGateway("deepseek/deepseek-v4-pro"));
 
@@ -21,11 +21,14 @@ const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
   return { activeTools: active };
 };
 
-export const createAgent: CreateAgent = (deliver, sendFile) => {
+export const createAgent = (
+  reminderDeliver: Deliver,
+  reminderSendFile: SendFile,
+) => {
   const lock = new Mutex();
   let jobs: Cron[] = [];
 
-  const runTurn = (message: string) =>
+  const runTurn = (message: string, deliver: Deliver, sendFile: SendFile) =>
     lock.runExclusive(async () => {
       const start = Date.now();
       console.log("turn start");
@@ -90,7 +93,11 @@ export const createAgent: CreateAgent = (deliver, sendFile) => {
         reminder.type === "repeating" ? reminder.cron : reminder.at;
       try {
         const cronFunction = () =>
-          runTurn(`${REMINDER_PROMPT} ${reminder.prompt}`);
+          runTurn(
+            `${REMINDER_PROMPT} ${reminder.prompt}`,
+            reminderDeliver,
+            reminderSendFile,
+          );
         jobs.push(new Cron(pattern, { timezone: reminder.tz }, cronFunction));
       } catch (e: any) {
         const message = `reminder ${fileName} unschedulable, skipping:`;
