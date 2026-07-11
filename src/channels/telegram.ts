@@ -1,16 +1,34 @@
-import { randomInt } from "node:crypto";
 import {
   autoChatAction,
   type AutoChatActionFlavor,
 } from "@grammyjs/auto-chat-action";
 import { autoRetry } from "@grammyjs/auto-retry";
-import { streamApi } from "@grammyjs/stream";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { Laminar } from "@lmnr-ai/lmnr";
 import { Bot, InputFile, type Context } from "grammy";
+import telegramify from "telegramify-markdown";
 import type { Agent, Channel } from "../types";
 
 type BotContext = Context & AutoChatActionFlavor;
+
+// Telegram hard-caps a message at 4096 chars; keep headroom for MarkdownV2
+// escaping (telegramify can lengthen the text).
+const MAX_LEN = 3800;
+
+// Split into <=MAX_LEN pieces, preferring newline boundaries so we don't cut
+// mid-word / mid-paragraph.
+const chunk = (text: string): string[] => {
+  const pieces: string[] = [];
+  let rest = text;
+  while (rest.length > MAX_LEN) {
+    let cut = rest.lastIndexOf("\n", MAX_LEN);
+    if (cut < MAX_LEN * 0.5) cut = MAX_LEN; // no usable newline — hard cut
+    pieces.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
+  }
+  if (rest.trim()) pieces.push(rest);
+  return pieces;
+};
 
 export function createTelegram(): Channel {
   const chatId = Number(process.env.TELEGRAM_CHAT_ID);
@@ -20,12 +38,26 @@ export function createTelegram(): Channel {
   bot.api.config.use(autoRetry({ maxDelaySeconds: 5, maxRetryAttempts: 3 }));
   bot.api.config.use(apiThrottler());
   bot.use(autoChatAction());
-  const streamer = streamApi(bot.api.raw);
-  const newDraftId = () => randomInt(1, 2 ** 48);
   const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp"];
 
-  const deliver = (stream: AsyncIterable<string>) =>
-    streamer.streamMarkdown(chatId, newDraftId(), stream).then(() => {});
+  // Accumulate the streamed reply, then send it as one (or a few) plain
+  // messages via sendMessage. No draft/streaming API — that experimental
+  // path left stuck "streaming" drafts in the chat.
+  const deliver = async (stream: AsyncIterable<string>) => {
+    let text = "";
+    for await (const delta of stream) text += delta;
+    text = text.trim();
+    if (!text) return;
+    for (const piece of chunk(text)) {
+      try {
+        await bot.api.sendMessage(chatId, telegramify(piece, "escape"), {
+          parse_mode: "MarkdownV2",
+        });
+      } catch {
+        await bot.api.sendMessage(chatId, piece); // fallback: unformatted
+      }
+    }
+  };
   const sendFile = (absPath: string, caption?: string) => {
     const file = new InputFile(absPath);
     const opts = caption ? { caption } : {};
