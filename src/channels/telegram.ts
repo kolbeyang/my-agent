@@ -49,7 +49,11 @@ export function createTelegram(): Channel {
     };
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
-    bot.start(); // not awaited — kicks off long-poll so other surfaces can attach
+    bot.catch((err) => console.error("Bot error", err.error));
+    bot.start().catch((e) => {
+      console.error("Polling died: ", e);
+      process.exit(1);
+    });
   };
 
   return { deliver, sendFile, listen };
