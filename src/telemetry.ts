@@ -10,6 +10,11 @@ export function initializeTelemetry() {
       // The SDK also reads LMNR_BASE_URL from the environment. Force HTTP only
       // when explicitly requested (e.g. for a local OTLP/HTTP collector).
       forceHttp: process.env.LMNR_OTLP_HTTP === "true",
+      // The SDK strips the port from baseUrl before constructing the exporter.
+      // Pass it explicitly so local/self-hosted HTTP collectors work.
+      httpPort: process.env.LMNR_BASE_URL
+        ? Number(new URL(process.env.LMNR_BASE_URL).port) || undefined
+        : undefined,
     },
   });
 }
