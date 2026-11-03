@@ -12,7 +12,6 @@ A minimal personal-assistant Telegram bot named **Sam**, built on the
   [Composio](https://composio.dev) (curated read / draft / create only — never sends or deletes).
 - **Reminders** — one YAML file per reminder in `memory/reminders/`, scheduled with
   [croner](https://github.com/hexagon/croner). Rebuilt from disk on boot and after every turn.
-- **Tracing** — **[Laminar](https://lmnr.ai)** on every LLM call.
 
 ## Quick start
 
@@ -46,8 +45,6 @@ simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` 
 | `MEMORY_ROOT` | no | The memory dir, relative to `WORKSPACE_ROOT`. Default `memory`. |
 | `TAVILY_API_KEY` | for web search | From [tavily.com](https://tavily.com). |
 | `COMPOSIO_API_KEY` + `COMPOSIO_USER_ID` | for Gmail/Cal/Sheets | Both must be set; the Google account is connected under that Composio user. |
-| `LMNR_PROJECT_API_KEY` | for tracing | Laminar project key from [lmnr.ai](https://lmnr.ai). |
-| `LMNR_BASE_URL` / `LMNR_HTTP_PORT` / `LMNR_GRPC_PORT` | self-hosted Laminar | Point tracing at your own instance. |
 
 ## How it works
 

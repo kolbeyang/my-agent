@@ -1,4 +1,3 @@
-import { Laminar, registerAiSdkTelemetry } from "@lmnr-ai/lmnr";
 import { mkdir } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createAgent } from "./agent";
@@ -6,18 +5,6 @@ import { createCli } from "./channels/cli";
 import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
-
-Laminar.initialize({
-  projectApiKey: process.env.LMNR_PROJECT_API_KEY,
-  ...(process.env.LMNR_BASE_URL && {
-    baseUrl: process.env.LMNR_BASE_URL,
-    httpPort: Number(process.env.LMNR_HTTP_PORT) ?? undefined,
-    grpcPort: Number(process.env.LMNR_GRPC_PORT) ?? undefined,
-    disableBatch: true,
-  }),
-});
-
-registerAiSdkTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });

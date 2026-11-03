@@ -1,4 +1,3 @@
-import { Laminar } from "@lmnr-ai/lmnr";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { Agent, Channel } from "../types";
@@ -28,7 +27,6 @@ export function createCli(): Channel {
       if (!line) continue;
       await agent.runTurn(line, deliver, sendFile);
     }
-    await Laminar.shutdown();
     process.exit(0);
   };
 

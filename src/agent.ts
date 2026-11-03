@@ -1,4 +1,3 @@
-import { wrapLanguageModel } from "@lmnr-ai/lmnr";
 import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
@@ -11,7 +10,7 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, MyAgentTools, tools } from "./tools";
 import { type Deliver, reminderSchema, type SendFile } from "./types";
 
-const model = wrapLanguageModel(aiGateway("deepseek/deepseek-v4-pro"));
+const model = aiGateway("deepseek/deepseek-v4-pro");
 
 const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
   const calledListTools = steps.some((s) =>
