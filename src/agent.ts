@@ -1,3 +1,4 @@
+import { observe } from "@lmnr-ai/lmnr";
 import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
@@ -31,7 +32,7 @@ export const createAgent = (
     lock.runExclusive(async () => {
       const start = Date.now();
       console.log("turn start");
-      try {
+      const execute = async () => {
         await logMessage("user", message);
         const agent = new ToolLoopAgent<never, MyAgentTools>({
           model,
@@ -56,6 +57,16 @@ export const createAgent = (
           })(),
         );
         if (reply.trim()) await logMessage("assistant", reply);
+        return reply;
+      };
+      try {
+        // Consume the stream inside the span so all model/tool steps remain
+        // children of this turn and the root output is the delivered reply.
+        if (process.env.LMNR_PROJECT_API_KEY) {
+          await observe({ name: "agent.turn", input: { message } }, execute);
+        } else {
+          await execute();
+        }
       } catch (e: any) {
         console.error("turn failed:", e?.message ?? e);
       }

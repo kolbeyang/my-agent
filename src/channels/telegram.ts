@@ -4,6 +4,7 @@ import {
 } from "@grammyjs/auto-chat-action";
 import { autoRetry } from "@grammyjs/auto-retry";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
+import { Laminar } from "@lmnr-ai/lmnr";
 import { Bot, InputFile, type Context } from "grammy";
 import telegramify from "telegramify-markdown";
 import type { Agent, Channel } from "../types";
@@ -75,6 +76,7 @@ export function createTelegram(): Channel {
     });
     const shutdown = async () => {
       await bot.stop();
+      if (process.env.LMNR_PROJECT_API_KEY) await Laminar.shutdown();
       process.exit(0);
     };
     process.once("SIGINT", shutdown);

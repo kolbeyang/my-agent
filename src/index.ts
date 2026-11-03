@@ -1,3 +1,4 @@
+import { registerAiSdkTelemetry } from "@lmnr-ai/lmnr";
 import { mkdir } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createAgent } from "./agent";
@@ -5,6 +6,23 @@ import { createCli } from "./channels/cli";
 import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
+
+// AI SDK v7 traces model steps and tool calls automatically. Keep tracing optional
+// for local runs that have no Laminar project key.
+if (process.env.LMNR_PROJECT_API_KEY) {
+  registerAiSdkTelemetry({
+    laminarOptions: {
+      projectApiKey: process.env.LMNR_PROJECT_API_KEY,
+      ...(process.env.LMNR_BASE_URL && { baseUrl: process.env.LMNR_BASE_URL }),
+      ...(process.env.LMNR_HTTP_PORT && {
+        httpPort: Number(process.env.LMNR_HTTP_PORT),
+      }),
+      ...(process.env.LMNR_GRPC_PORT && {
+        grpcPort: Number(process.env.LMNR_GRPC_PORT),
+      }),
+    },
+  });
+}
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });

@@ -45,6 +45,8 @@ simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` 
 | `MEMORY_ROOT` | no | The memory dir, relative to `WORKSPACE_ROOT`. Default `memory`. |
 | `TAVILY_API_KEY` | for web search | From [tavily.com](https://tavily.com). |
 | `COMPOSIO_API_KEY` + `COMPOSIO_USER_ID` | for Gmail/Cal/Sheets | Both must be set; the Google account is connected under that Composio user. |
+| `LMNR_PROJECT_API_KEY` | for Laminar tracing | Enables per-turn traces including model steps and tool calls; prompts and tool payloads are recorded. |
+| `LMNR_BASE_URL`, `LMNR_HTTP_PORT`, `LMNR_GRPC_PORT` | for self-hosted Laminar | Override the exporter endpoint/ports; leave blank for Laminar Cloud. |
 
 ## How it works
 
@@ -56,6 +58,8 @@ Telegram / CLI ──► channel ──► agent.runTurn ──► generateText 
                                    ├─ memory    = WORKSPACE_ROOT/memory (notes, conversations, reminders)
                                    └─ reminders = YAML in memory/reminders, scheduled by croner
 ```
+
+When `LMNR_PROJECT_API_KEY` is set, Laminar traces each turn (including streamed model steps and tool calls). See [Vercel AI SDK observability](https://laminar.sh/docs/integrations/vercel-ai-sdk) for the telemetry integration. CLI shutdown flushes pending spans.
 
 Turns are mutex-serialized so a turn and a firing reminder never overlap. Conversation history is
 logged as per-day JSON files under `memory/conversations`; the model sees the most recent 25 messages.
