@@ -39,12 +39,28 @@ simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` 
 | Var | Required? | What it's for |
 |---|---|---|
 | `AI_GATEWAY_API_KEY` | **yes** | All inference, via [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). |
+| `LMNR_PROJECT_API_KEY` | for tracing | Laminar project key; if unset, tracing is skipped. |
+| `LMNR_BASE_URL` | no | Override the Laminar endpoint (e.g. self-hosted); defaults to Laminar Cloud. |
+| `LMNR_OTLP_HTTP` | no | Set to `true` for OTLP/HTTP instead of the default gRPC, e.g. for a local collector. |
 | `TELEGRAM_TOKEN` | for Telegram | Bot token from [@BotFather](https://t.me/BotFather). |
 | `TELEGRAM_CHAT_ID` | for Telegram | Your chat id — the single-user gate. From [@userinfobot](https://t.me/userinfobot). |
 | `WORKSPACE_ROOT` | no | The agent's bash cwd + file-tool root. Default `./workspace`. |
 | `MEMORY_ROOT` | no | The memory dir, relative to `WORKSPACE_ROOT`. Default `memory`. |
 | `TAVILY_API_KEY` | for web search | From [tavily.com](https://tavily.com). |
 | `COMPOSIO_API_KEY` + `COMPOSIO_USER_ID` | for Gmail/Cal/Sheets | Both must be set; the Google account is connected under that Composio user. |
+
+## Laminar tracing
+
+Install dependencies and set `LMNR_PROJECT_API_KEY` in your private `.env` (never commit
+keys). Startup registers the [AI SDK v7 Laminar telemetry](https://laminar.sh/docs/integrations/vercel-ai-sdk)
+once before the first turn. Each serialized turn has an `agent.turn` parent span,
+including the streamed model calls and tool activity. Prompts and replies are
+captured by default, so only enable tracing where that data may be exported.
+The CLI drains pending spans before exit; long-running Telegram/HTTP channels use
+background batching. If no Laminar key is set, Telegram/HTTP/CLI still work
+without Laminar export. For a self-hosted or local collector, set `LMNR_BASE_URL`
+to its base URL (including port); set `LMNR_OTLP_HTTP=true` for OTLP/HTTP.
+A key for a local Laminar project is not necessarily valid for Laminar Cloud.
 
 ## How it works
 

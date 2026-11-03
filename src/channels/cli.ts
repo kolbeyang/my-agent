@@ -1,5 +1,6 @@
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { shutdownTelemetry } from "../telemetry";
 import { Agent, Channel } from "../types";
 
 export function createCli(): Channel {
@@ -27,6 +28,7 @@ export function createCli(): Channel {
       if (!line) continue;
       await agent.runTurn(line, deliver, sendFile);
     }
+    await shutdownTelemetry();
     process.exit(0);
   };
 
