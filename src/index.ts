@@ -5,6 +5,9 @@ import { createCli } from "./channels/cli";
 import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
+import { initializeTelemetry } from "./telemetry";
+
+initializeTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });
