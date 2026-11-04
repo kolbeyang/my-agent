@@ -68,6 +68,13 @@ logged as per-day JSON files under `memory/conversations`; the model sees the mo
 | `pnpm dev` | Telegram bot with `--watch` (auto-reload). |
 | `pnpm start` | Telegram bot, no watch. |
 
+## Development
+
+Use Node 24 (`.node-version`) and pnpm 10 (`corepack enable`), then install dependencies with
+`pnpm install`. Copy `.env.example` to `.env` and set `AI_GATEWAY_API_KEY`. Run `pnpm try` for a
+local CLI agent; to run the Telegram bot in watch mode, also set `TELEGRAM_TOKEN` and
+`TELEGRAM_CHAT_ID`, then run `pnpm dev`.
+
 ## Deploying
 
 Runs on a self-hosted Linux host as a rootless **systemd** user service (long-polls Telegram, no
