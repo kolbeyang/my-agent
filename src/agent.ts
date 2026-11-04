@@ -1,4 +1,4 @@
-import { wrapLanguageModel } from "@lmnr-ai/lmnr";
+import { observe, wrapLanguageModel } from "@lmnr-ai/lmnr";
 import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
@@ -33,35 +33,42 @@ export const createAgent = (
       const start = Date.now();
       console.log("turn start");
       try {
-        await logMessage("user", message);
-        const agent = new ToolLoopAgent<never, MyAgentTools>({
-          model,
-          tools: tools,
-          activeTools: Object.keys(coreTools),
-          prepareStep: revealExtraToolsAfterListTools,
-          stopWhen: isStepCount(100),
-          instructions: await buildSystemPrompt(),
-          toolsContext: { send_file: { sendFile } },
+        // Keep the span active until the stream is fully consumed: the AI SDK
+        // produces LLM and tool spans while deliver() iterates textStream.
+        await observe({ name: "agent.turn", input: { message } }, async () => {
+          await logMessage("user", message);
+          const agent = new ToolLoopAgent<never, MyAgentTools>({
+            model,
+            tools,
+            activeTools: Object.keys(coreTools),
+            prepareStep: revealExtraToolsAfterListTools,
+            stopWhen: isStepCount(100),
+            instructions: await buildSystemPrompt(),
+            toolsContext: { send_file: { sendFile } },
+          });
+          const result = await agent.stream({
+            messages: await getConversationHistoryWindow(),
+          });
+          // Forward deltas to the channel while accumulating the full reply to log.
+          let reply = "";
+          await deliver(
+            (async function* () {
+              for await (const delta of result.textStream) {
+                reply += delta;
+                yield delta;
+              }
+            })(),
+          );
+          if (reply.trim()) await logMessage("assistant", reply);
+          return reply;
         });
-        const result = await agent.stream({
-          messages: await getConversationHistoryWindow(),
-        });
-        // Forward deltas to the channel while accumulating the full reply to log.
-        let reply = "";
-        await deliver(
-          (async function* () {
-            for await (const delta of result.textStream) {
-              reply += delta;
-              yield delta;
-            }
-          })(),
-        );
-        if (reply.trim()) await logMessage("assistant", reply);
       } catch (e: any) {
+        // Catch outside observe so failed turns are marked as errors in Laminar.
         console.error("turn failed:", e?.message ?? e);
+      } finally {
+        await syncReminders();
+        console.log(`turn done in ${Date.now() - start}ms`);
       }
-      await syncReminders();
-      console.log(`turn done in ${Date.now() - start}ms`);
     });
 
   const syncReminders = async () => {

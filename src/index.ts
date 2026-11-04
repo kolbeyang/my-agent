@@ -7,13 +7,18 @@ import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
 
+// Keep batching enabled for both cloud and self-hosted exporters. Only pass
+// ports when supplied: Number(undefined) is NaN, not undefined.
 Laminar.initialize({
   projectApiKey: process.env.LMNR_PROJECT_API_KEY,
   ...(process.env.LMNR_BASE_URL && {
     baseUrl: process.env.LMNR_BASE_URL,
-    httpPort: Number(process.env.LMNR_HTTP_PORT) ?? undefined,
-    grpcPort: Number(process.env.LMNR_GRPC_PORT) ?? undefined,
-    disableBatch: true,
+    ...(process.env.LMNR_HTTP_PORT && {
+      httpPort: Number(process.env.LMNR_HTTP_PORT),
+    }),
+    ...(process.env.LMNR_GRPC_PORT && {
+      grpcPort: Number(process.env.LMNR_GRPC_PORT),
+    }),
   }),
 });
 
