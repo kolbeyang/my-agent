@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# e2e: edit tool
 # Runs ON the deploy host (invoked by scripts/deploy.sh over SSH).
 # Converges to origin/main, reinstalls deps, restarts the service. No sudo.
 set -euo pipefail
