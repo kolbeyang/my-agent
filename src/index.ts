@@ -7,11 +7,9 @@ import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
 
-// AI SDK v7: register before the first model call. Harbor writes to a local
-// trajectory file; production exports only when a Laminar key is configured.
-if (process.env.LMNR_PROJECT_API_KEY || process.env.LMNR_TRAJECTORY_PATH) {
-  registerAiSdkTelemetry();
-}
+// AI SDK v7: register before the first model call. During Harbor trials the
+// Laminar SDK writes spans to LMNR_TRAJECTORY_PATH instead of exporting them.
+registerAiSdkTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });
