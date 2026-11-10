@@ -1,4 +1,5 @@
-import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
 import { Cron } from "croner";
 import { readdir, readFile, rm } from "node:fs/promises";
@@ -10,7 +11,7 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, MyAgentTools, tools } from "./tools";
 import { type Deliver, reminderSchema, type SendFile } from "./types";
 
-const model = aiGateway("deepseek/deepseek-v4-pro");
+const model = anthropic("claude-sonnet-4-5");
 
 const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
   const calledListTools = steps.some((s) =>

@@ -1,0 +1,4 @@
+images:
+  my-agent-evals:
+    dockerfile: image/Dockerfile
+    context: ..

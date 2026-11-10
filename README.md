@@ -3,7 +3,7 @@
 A minimal personal-assistant Telegram bot named **Sam**, built on the
 [Vercel AI SDK](https://sdk.vercel.ai). Single-user, runs as a long-poll worker.
 
-- **Inference** — `moonshotai/kimi-k2` via the **Vercel AI Gateway** (one API key for everything).
+- **Inference** — `claude-sonnet-4-5` directly via **Anthropic** (`ANTHROPIC_API_KEY`).
 - **Memory** — a plain directory on disk (`memory/`). `MEMORY.md` is the hot tier, auto-injected
   into the system prompt every turn; `memory/notes/` is the cold tier the agent greps on demand.
   The agent maintains both itself with its file tools. No database.
@@ -34,11 +34,11 @@ pnpm dev                        # needs TELEGRAM_TOKEN + TELEGRAM_CHAT_ID
 ## Environment variables
 
 Copy `.env.example` to `.env` and fill these in. Leave a feature's keys unset and that feature is
-simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` for the bot).
+simply skipped, so you can start with just `ANTHROPIC_API_KEY` (+ `TELEGRAM_*` for the bot).
 
 | Var | Required? | What it's for |
 |---|---|---|
-| `AI_GATEWAY_API_KEY` | **yes** | All inference, via [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). |
+| `ANTHROPIC_API_KEY` | **yes** | All inference, directly via Anthropic. |
 | `TELEGRAM_TOKEN` | for Telegram | Bot token from [@BotFather](https://t.me/BotFather). |
 | `TELEGRAM_CHAT_ID` | for Telegram | Your chat id — the single-user gate. From [@userinfobot](https://t.me/userinfobot). |
 | `WORKSPACE_ROOT` | no | The agent's bash cwd + file-tool root. Default `./workspace`. |
@@ -49,7 +49,7 @@ simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` 
 ## How it works
 
 ```
-Telegram / CLI ──► channel ──► agent.runTurn ──► generateText (Vercel AI SDK, via AI Gateway)
+Telegram / CLI ──► channel ──► agent.runTurn ──► ToolLoopAgent (AI SDK, via Anthropic)
                                    │               tools: bash, readFile, writeFile,
                                    │                      web_search, web_extract, Composio
                                    ├─ workspace = WORKSPACE_ROOT (bash cwd + file root)

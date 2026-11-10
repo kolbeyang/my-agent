@@ -1,0 +1,7 @@
+# Memory recall environment eval
+
+Two isolated cases run the production HTTP `POST /ask` entry point against the real agent and Anthropic model. Both ask the same question; only the private preloaded memory and reference answer differ. The verifier checks the returned answer against the case's expected sailboat name. No third-party service is mocked: Telegram, Tavily and Composio aren't used by these cases. Each case gets its own filesystem and process; the model is real and requires `ANTHROPIC_API_KEY`.
+
+From the repo root, set `ANTHROPIC_API_KEY` and `LMNR_PROJECT_API_KEY`, then run `npx -y lmnr-cli@latest eval run evals`; use `--remote` to run on Laminar. Copy a task folder to add a case, change `environment/case.json` and `tests/expected.json`, and run it. Keep answers only in `tests/`.
+
+The production application has no Laminar instrumentation. After the HTTP request, the eval harness reconstructs an ATIF trajectory from the application's persisted `memory/conversations/*.json` files and Harbor attaches it to the trial. This is **not a full LLM/tool trace**: those files contain only user and final assistant turns. The exact LLM prompts, intermediate model calls, system prompt, tool calls/results, tokens, cost, retries, and per-call latency are unavailable and are not estimated. The model name is the configured model, not proof of an individual call. No production code or dependencies are modified to produce the trajectory.
