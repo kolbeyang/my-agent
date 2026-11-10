@@ -39,7 +39,6 @@ simply skipped, so you can start with just `ANTHROPIC_API_KEY` (+ `TELEGRAM_*` f
 | Var | Required? | What it's for |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | **yes** | All inference, directly via Anthropic. |
-| `LMNR_PROJECT_API_KEY` | for production tracing | Trace AI SDK model/tool calls in Laminar; eval runs use `LMNR_TRAJECTORY_PATH` instead. |
 | `TELEGRAM_TOKEN` | for Telegram | Bot token from [@BotFather](https://t.me/BotFather). |
 | `TELEGRAM_CHAT_ID` | for Telegram | Your chat id — the single-user gate. From [@userinfobot](https://t.me/userinfobot). |
 | `WORKSPACE_ROOT` | no | The agent's bash cwd + file-tool root. Default `./workspace`. |
@@ -60,9 +59,6 @@ Telegram / CLI ──► channel ──► agent.runTurn ──► ToolLoopAgent
 
 Turns are mutex-serialized so a turn and a firing reminder never overlap. Conversation history is
 logged as per-day JSON files under `memory/conversations`; the model sees the most recent 25 messages.
-AI SDK v7 telemetry is registered at startup using Laminar, tracing model and tool spans. In a Harbor
-eval, spans go to its trajectory file and are attached to the trial trace; in production, set
-`LMNR_PROJECT_API_KEY` to export them to Laminar.
 
 ## Scripts
 

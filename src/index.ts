@@ -1,4 +1,3 @@
-import { registerAiSdkTelemetry } from "@lmnr-ai/lmnr";
 import { mkdir } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createAgent } from "./agent";
@@ -6,10 +5,6 @@ import { createCli } from "./channels/cli";
 import { createHttp } from "./channels/http";
 import { createTelegram } from "./channels/telegram";
 import { conversationsDir, remindersDir, WORKSPACE_ROOT } from "./config";
-
-// AI SDK v7: register before the first model call. During Harbor trials the
-// Laminar SDK writes spans to LMNR_TRAJECTORY_PATH instead of exporting them.
-registerAiSdkTelemetry();
 
 await mkdir(WORKSPACE_ROOT, { recursive: true });
 await mkdir(conversationsDir, { recursive: true });
