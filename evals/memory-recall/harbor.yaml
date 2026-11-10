@@ -1,0 +1,8 @@
+agents:
+  - import_path: agent.agent:PersonalAssistantDriver
+    model_name: deepseek/deepseek-v4-pro
+    env:
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+datasets:
+  - path: tasks
+n_concurrent_trials: 2

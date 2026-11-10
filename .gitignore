@@ -7,3 +7,7 @@ memory/
 data/
 .claude/
 .lmnr
+evals/*/jobs/
+
+__pycache__/
+*.pyc

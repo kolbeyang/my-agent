@@ -1,0 +1,8 @@
+[environment]
+docker_image = "my-agent-evals"
+workdir = "/case"
+cpus = 1
+memory_mb = 2048
+
+[agent]
+timeout_sec = 210
