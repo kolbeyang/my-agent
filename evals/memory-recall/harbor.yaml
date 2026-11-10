@@ -1,8 +1,8 @@
 agents:
   - import_path: agent.agent:PersonalAssistantDriver
-    model_name: deepseek/deepseek-v4-pro
+    model_name: anthropic/claude-sonnet-4-5
     env:
-      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 datasets:
   - path: tasks
 n_concurrent_trials: 2
