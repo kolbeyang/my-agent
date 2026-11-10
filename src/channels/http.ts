@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { Laminar } from "@lmnr-ai/lmnr";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { Agent, Channel } from "../types";
@@ -33,6 +34,8 @@ export function createHttp(): Channel {
         reply += `\n[file: ${absPath}${caption ? ` — ${caption}` : ""}]`;
       };
       await agent.runTurn(text, deliver, sendFile);
+      // Harbor reads the trajectory immediately after the request completes.
+      if (process.env.LMNR_TRAJECTORY_PATH) await Laminar.flush();
       return c.json({ reply });
     });
 
