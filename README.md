@@ -60,9 +60,9 @@ Telegram / CLI ──► channel ──► agent.runTurn ──► ToolLoopAgent
 
 Turns are mutex-serialized so a turn and a firing reminder never overlap. Conversation history is
 logged as per-day JSON files under `memory/conversations`; the model sees the most recent 25 messages.
-AI SDK v7 telemetry is registered at startup using Laminar, tracing model and tool spans. In a Harbor
-eval, spans go to its trajectory file and are attached to the trial trace; in production, set
-`LMNR_PROJECT_API_KEY` to export them to Laminar.
+AI SDK v7 telemetry is registered at startup when a Laminar key or Harbor trajectory path is set,
+tracing model and tool spans. In a Harbor eval, spans go to its trajectory file and are attached
+to the trial trace; in production, set `LMNR_PROJECT_API_KEY` to export them to Laminar.
 
 ## Scripts
 
