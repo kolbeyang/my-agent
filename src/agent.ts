@@ -20,7 +20,7 @@ const createModel = () => {
 
   const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
   const resourceName = process.env.AZURE_RESOURCE_NAME;
-  const apiKey = process.env.AZURE_OPENAI_API_KEY ?? process.env.AZURE_API_KEY;
+  const apiKey = process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_API_KEY;
   if ((!endpoint && !resourceName) || !apiKey) {
     throw new Error(
       "Azure requires AZURE_OPENAI_ENDPOINT or AZURE_RESOURCE_NAME, and AZURE_OPENAI_API_KEY or AZURE_API_KEY",
