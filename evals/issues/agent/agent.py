@@ -1,5 +1,4 @@
-from harbor.agents.installed.base import BaseInstalledAgent
-from harbor.agents.base import with_prompt_template
+from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
 
 
 class MyAgentEval(BaseInstalledAgent):
