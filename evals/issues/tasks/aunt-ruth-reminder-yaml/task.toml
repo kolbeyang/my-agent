@@ -1,0 +1,11 @@
+[environment]
+docker_image = "my-agent-issues"
+workdir = "/case"
+cpus = 2
+memory_mb = 2048
+
+[agent]
+timeout_sec = 260
+
+[metadata]
+source_trace_id = "8e1676de-5c57-3a94-3994-89d7e9e07718"

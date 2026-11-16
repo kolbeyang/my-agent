@@ -1,0 +1,19 @@
+{
+  "kind": "budget-update",
+  "source": "17da2922-24a9-4517-6668-d4aa9cea41bc",
+  "message": "Add $25 for meals to the budget, so $287 should remain. Update only the budget file—leave the trip note unchanged for now—and show the exact file contents. Keep the daily temperature figures in mind for the next note update.",
+  "files": {
+    "weekend_trip_budget.csv": "Total Budget,600\nCategory,Budgeted,Actual,Notes\nHotel,248,,Hotel cost\nTransit,40,,Transit\nUnallocated,312,,Remaining after hotel and transit\n",
+    "weekend_trip_note.txt": "Weekend Trip Note\nDestination: Portland\nDates: October 10–12\nHotel cost: $248\nBudget: $312 remains after the $248 hotel and $40 transit costs (from $600 total).\nWeather/packing: Portland downtown's October monthly normal for rain is 3.96 inches (1991–2020 normals); pack a rain jacket and waterproof shoes.\nSource: https://www.weather.gov/media/pqr/climate/ClimateBookPortland/pg86.pdf\n"
+  },
+  "history": [
+    [
+      "user",
+      "Add $40 for transit to the budget, so the unallocated amount should be $312. Update the trip note’s budget line to match and show me both files’ exact contents."
+    ],
+    [
+      "assistant",
+      "I updated the budget and trip note. The budget has a $600 total, $248 hotel, $40 transit and $312 unallocated."
+    ]
+  ]
+}

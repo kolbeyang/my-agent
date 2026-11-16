@@ -1,0 +1,15 @@
+# Signal "Issues" regression cases
+
+Five independent Harbor cases sourced from warning-level events for the [Issues signal](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/signals/bcc13c16-f006-4412-8f69-26b503f4fb1a). No clusters exist yet. Each trial boots the real Node HTTP entry point, sends the original failing turn, and inspects the actual workspace artifacts. Reward 1 means the observed defect is absent and the requested action happened. There are no synthetic cases or controls yet. Case data uses no raw user credentials or customer records; paths and earlier messages have been normalized.
+
+| Case | Source trace | Why selected / verifier |
+| --- | --- | --- |
+| budget-template-newlines | [trace](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/traces/bcc57e7f-a56d-7409-2af4-b06604260517) | Single-line malformed CSV: require distinct total and header rows and a reported file path. |
+| budget-meals-exact-content | [trace](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/traces/17da2922-24a9-4517-6668-d4aa9cea41bc) | Agent displayed a reflowed file: require meals/$287, unchanged trip note, and fenced CSV identical to on-disk content except optional final newline. |
+| sqlite-absolute-path | [trace](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/traces/657f216b-408e-8451-26ba-c806283ec29c) | Relative path without workspace location: require usable three-row database, command and absolute path. |
+| aunt-ruth-reminder-yaml | [trace](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/traces/8e1676de-5c57-3a94-3994-89d7e9e07718) | Reminder file with fields on one line: require parsed YAML mapping with type, timezone, offset-aware date and prompt. |
+| groceries-preserve-markers | [trace](https://laminar.sh/project/a2f57110-a9ad-4178-ad14-558a8aac8283/traces/53819a31-80c2-8b71-5bdb-c1112e437bea) | List collapsed to a single line: require six individual lines and original bought markers. |
+
+Run from the repository root with `AI_GATEWAY_API_KEY` set: `npx -y lmnr-cli@latest eval run evals --remote --n-attempts 3`. The real `deepseek/deepseek-v4-pro` model is fixed by the existing application. No LLM response is mocked. Create new tasks by copying a case directory, updating `environment/case.json`, `instruction.md`, the `source_trace_id` in `task.toml`, and the deterministic checks in `image/shared/verify.py` as appropriate. Trial output lives in `/logs/agent/result.json`, and scores in `/logs/verifier/reward.txt`.
+
+**Limits:** The checked-out app uses `@lmnr-ai/lmnr` older than trajectory-file support; do not interpret a single-span trial as evidence of no tool usage. These checks are artifact-based, not a replay of model outputs. The original user's complete conversation history is not present in this repository; per-case history reproduces the relevant preceding turn(s) only. The app runs in an isolated container without third-party services for these offline tasks.
