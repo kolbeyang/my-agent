@@ -1,0 +1,4 @@
+images:
+  my-agent-issues:
+    dockerfile: image/Dockerfile
+    context: ..

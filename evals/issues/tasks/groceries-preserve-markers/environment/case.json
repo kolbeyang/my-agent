@@ -1,0 +1,18 @@
+{
+  "kind": "groceries",
+  "source": "53819a31-80c2-8b71-5bdb-c1112e437bea",
+  "message": "Great, thanks. Add yogurt and spinach to `shopping/weekly-groceries.txt`, leaving the bought items marked as they are.",
+  "files": {
+    "shopping/weekly-groceries.txt": "- Milk\n- [x] Eggs\n- Bread\n- [x] Bananas\n"
+  },
+  "history": [
+    [
+      "user",
+      "Can you show me the contents of shopping/weekly-groceries.txt now, just to confirm everything made it over?"
+    ],
+    [
+      "assistant",
+      "- Milk\n- [x] Eggs\n- Bread\n- [x] Bananas"
+    ]
+  ]
+}

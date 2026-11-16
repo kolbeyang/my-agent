@@ -1,0 +1,1 @@
+Add $25 for meals to the budget, so $287 should remain. Update only the budget file—leave the trip note unchanged for now—and show the exact file contents. Keep the daily temperature figures in mind for the next note update.

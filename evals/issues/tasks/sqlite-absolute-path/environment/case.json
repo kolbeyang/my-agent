@@ -1,0 +1,5 @@
+{
+  "kind": "sqlite-path",
+  "source": "657f216b-408e-8451-26ba-c806283ec29c",
+  "message": "Can you create a small SQLite database in your workspace with a `books` table, add three sample books, and show me the query output? Please include the file path and the exact command you used."
+}

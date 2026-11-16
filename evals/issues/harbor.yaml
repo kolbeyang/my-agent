@@ -1,0 +1,10 @@
+agents:
+  - import_path: agent.agent:MyAgentEval
+    model_name: GPT-6-Sol
+    env:
+      LLM_PROVIDER: azure
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+datasets:
+  - path: tasks
+n_concurrent_trials: 2
