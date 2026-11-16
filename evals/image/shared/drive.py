@@ -1,4 +1,5 @@
 import json
+import time
 import urllib.request
 from pathlib import Path
 
@@ -15,5 +16,23 @@ try:
 except Exception as exc:
     result['status'] = 'timeout' if isinstance(exc, TimeoutError) else 'failed'
     result['error'] = repr(exc)
+
+# The app is a long-lived HTTP process: wait for the SDK's periodic atomic
+# trajectory snapshot before Harbor collects /logs/agent/ at agent completion.
+trajectory = Path('/logs/agent/trajectory.json')
+for _ in range(24):
+    if trajectory.is_file():
+        try:
+            steps = json.loads(trajectory.read_text()).get('steps', [])
+            if steps:
+                result['trajectory_steps'] = len(steps)
+                break
+        except (OSError, ValueError):
+            pass
+    time.sleep(0.5)
+else:
+    result['trajectory_steps'] = 0
+    result['status'] = 'failed'
+    result['error'] = (result['error'] + '; ' if result['error'] else '') + 'no LLM/tool trajectory captured'
 Path('/logs/agent/result.json').write_text(json.dumps(result, indent=2))
 print(json.dumps(result))

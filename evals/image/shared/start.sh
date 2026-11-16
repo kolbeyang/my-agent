@@ -5,10 +5,9 @@ cd /srv/app
 export WORKSPACE_ROOT=/case/workspace
 export HTTP_AUTH_TOKEN=local-eval-only-secret
 export HTTP_PORT=8787
-# Remote trials strip LMNR_* credentials. This SDK requires tracing config at
-# startup but predates Harbor trajectory-file support; route its exporter to a
-# loopback endpoint instead of sending eval spans to the production project.
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+# Capture SDK spans into the Harbor trial instead of exporting to production.
+# Laminar's trajectory-file mode needs no project API key in the container.
+export LMNR_TRAJECTORY_PATH=/logs/agent/trajectory.json
 # Keep the real process running across Harbor exec calls.
 nohup ./node_modules/.bin/tsx src/index.ts --http > /logs/agent/server.log 2>&1 < /dev/null &
 app_pid=$!
