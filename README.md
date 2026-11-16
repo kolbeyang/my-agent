@@ -3,7 +3,7 @@
 A minimal personal-assistant Telegram bot named **Sam**, built on the
 [Vercel AI SDK](https://sdk.vercel.ai). Single-user, runs as a long-poll worker.
 
-- **Inference** — `moonshotai/kimi-k2` via the **Vercel AI Gateway** (one API key for everything).
+- **Inference** — `deepseek/deepseek-v4-pro` via the Vercel AI Gateway by default; optionally Azure OpenAI with a `GPT-6-Sol` deployment.
 - **Memory** — a plain directory on disk (`memory/`). `MEMORY.md` is the hot tier, auto-injected
   into the system prompt every turn; `memory/notes/` is the cold tier the agent greps on demand.
   The agent maintains both itself with its file tools. No database.
@@ -35,11 +35,16 @@ pnpm dev                        # needs TELEGRAM_TOKEN + TELEGRAM_CHAT_ID
 ## Environment variables
 
 Copy `.env.example` to `.env` and fill these in. Leave a feature's keys unset and that feature is
-simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` for the bot).
+simply skipped. For inference set `AI_GATEWAY_API_KEY` (default provider), or select Azure with `LLM_PROVIDER=azure`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_ENDPOINT` (plus `TELEGRAM_*` for the bot).
 
 | Var | Required? | What it's for |
 |---|---|---|
-| `AI_GATEWAY_API_KEY` | **yes** | All inference, via [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). |
+| `AI_GATEWAY_API_KEY` | for default provider | `deepseek/deepseek-v4-pro` via [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). |
+| `LLM_PROVIDER` | for Azure | Set to `azure` to use Azure instead of the gateway. |
+| `AZURE_OPENAI_API_KEY` | for Azure | Azure OpenAI API key (`AZURE_API_KEY` is also accepted). |
+| `AZURE_OPENAI_ENDPOINT` | for Azure | Azure OpenAI resource URL, e.g. `https://RESOURCE.openai.azure.com/`; alternatively set `AZURE_RESOURCE_NAME`. |
+| `AZURE_OPENAI_DEPLOYMENT` | no | Azure deployment name (defaults to `GPT-6-Sol`; use the actual deployed name if different). |
+| `AZURE_OPENAI_API_VERSION` | no | Override the Azure API version (defaults to `v1`). |
 | `TELEGRAM_TOKEN` | for Telegram | Bot token from [@BotFather](https://t.me/BotFather). |
 | `TELEGRAM_CHAT_ID` | for Telegram | Your chat id — the single-user gate. From [@userinfobot](https://t.me/userinfobot). |
 | `WORKSPACE_ROOT` | no | The agent's bash cwd + file-tool root. Default `./workspace`. |
@@ -52,7 +57,7 @@ simply skipped, so you can start with just `AI_GATEWAY_API_KEY` (+ `TELEGRAM_*` 
 ## How it works
 
 ```
-Telegram / CLI ──► channel ──► agent.runTurn ──► generateText (Vercel AI SDK, via AI Gateway)
+Telegram / CLI ──► channel ──► agent.runTurn ──► ToolLoopAgent (AI SDK, gateway or Azure)
                                    │               tools: bash, readFile, writeFile,
                                    │                      web_search, web_extract, Composio
                                    ├─ workspace = WORKSPACE_ROOT (bash cwd + file root)

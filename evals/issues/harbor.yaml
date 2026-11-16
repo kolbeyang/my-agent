@@ -1,8 +1,11 @@
 agents:
   - import_path: agent.agent:MyAgentEval
-    model_name: deepseek/deepseek-v4-pro
+    model_name: ${AZURE_OPENAI_DEPLOYMENT:-GPT-6-Sol}
     env:
-      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      LLM_PROVIDER: azure
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-GPT-6-Sol}
 datasets:
   - path: tasks
 n_concurrent_trials: 2

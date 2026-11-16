@@ -1,3 +1,4 @@
+import { createAzure } from "@ai-sdk/azure";
 import { wrapLanguageModel } from "@lmnr-ai/lmnr";
 import { gateway as aiGateway, isStepCount, ToolLoopAgent } from "ai";
 import { Mutex } from "async-mutex";
@@ -11,7 +12,41 @@ import { buildSystemPrompt, REMINDER_PROMPT } from "./prompts";
 import { coreTools, MyAgentTools, tools } from "./tools";
 import { type Deliver, reminderSchema, type SendFile } from "./types";
 
-const model = wrapLanguageModel(aiGateway("deepseek/deepseek-v4-pro"));
+// Keep the existing gateway default; evals opt into Azure's GPT-6-Sol deployment.
+const createModel = () => {
+  if (process.env.LLM_PROVIDER !== "azure") {
+    return aiGateway("deepseek/deepseek-v4-pro");
+  }
+
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const resourceName = process.env.AZURE_RESOURCE_NAME;
+  const apiKey = process.env.AZURE_OPENAI_API_KEY ?? process.env.AZURE_API_KEY;
+  if ((!endpoint && !resourceName) || !apiKey) {
+    throw new Error(
+      "Azure requires AZURE_OPENAI_ENDPOINT or AZURE_RESOURCE_NAME, and AZURE_OPENAI_API_KEY or AZURE_API_KEY",
+    );
+  }
+
+  // @ai-sdk/azure 4.0.0 appends /v1 to baseURL. Azure's usual endpoint is
+  // the resource root; accept that as well as /openai and /openai/v1 URLs.
+  let baseURL: string | undefined;
+  if (endpoint) {
+    const url = new URL(endpoint);
+    const path = url.pathname.replace(/\/+$/, "").replace(/\/v1$/, "");
+    url.pathname = path || "/openai";
+    baseURL = url.toString().replace(/\/+$/, "");
+  }
+  const azure = createAzure({
+    ...(baseURL ? { baseURL } : { resourceName }),
+    apiKey,
+    ...(process.env.AZURE_OPENAI_API_VERSION
+      ? { apiVersion: process.env.AZURE_OPENAI_API_VERSION }
+      : {}),
+  });
+  return azure.responses(process.env.AZURE_OPENAI_DEPLOYMENT || "GPT-6-Sol");
+};
+
+const model = wrapLanguageModel(createModel());
 
 const revealExtraToolsAfterListTools = ({ steps }: { steps: any[] }) => {
   const calledListTools = steps.some((s) =>
